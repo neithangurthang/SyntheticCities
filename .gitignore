@@ -1,0 +1,5 @@
+### Files not to be commited ###
+
+*.geojson
+*.csv
+/.ipynb_checkpoints
