@@ -1,5 +1,5 @@
 ### Files not to be commited ###
-
+/mlruns
 *.geojson
 *.csv
 /.ipynb_checkpoints
