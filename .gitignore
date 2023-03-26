@@ -1,7 +1,12 @@
 ### Files not to be commited ###
 /mlruns
+*/mlruns
 *.geojson
 *.csv
-*.gpkz
+*.gpkg
+*.qgz
 /.ipynb_checkpoints
+*/.ipynb_checkpoints
+*/*/.ipynb_checkpoints
 /src/models/mlruns
+/data/cadastralExport
