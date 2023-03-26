@@ -353,6 +353,14 @@ def objective(trial: optuna.Trial):
         
         if best_mse_val is None:
             best_mse_val = mse_errG
+        if mse_errG <= best_mse_val:
+            # LOGGING
+            logging.debug('*'*40)
+            logging.debug(f'Optuna Params: {trial.params}')
+            logging.debug(f'Mean Square Error Loss: {mse_errG}') 
+            # Save Models
+            torch.save(netG, "../../models/MVPBestGenerator")
+            torch.save(netD, "../../models/MVPBestDiscriminator")
         best_mse_val = min(best_mse_val, mse_errG)
         mlflow.log_metric("mse_errG", mse_errG)
 
