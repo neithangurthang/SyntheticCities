@@ -29,6 +29,9 @@ from IPython.display import HTML # to embed html in the Ipython output
 import datetime
 import mlflow
 
+logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(filename='../../reports/MVPOptimizer.log') 
+
 # Set random seed for reproducibility
 manualSeed = 999
 #manualSeed = random.randint(1, 10000) # use if you want new results
