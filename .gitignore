@@ -2,4 +2,6 @@
 /mlruns
 *.geojson
 *.csv
+*.gpkz
 /.ipynb_checkpoints
+/src/models/mlruns
