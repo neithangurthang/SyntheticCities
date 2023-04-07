@@ -6,9 +6,10 @@ nz = 100
 
 # 5. Generator Class
 class OptGen(nn.Module):
-    def __init__(self, ngpu, num_conv_layers):
+    def __init__(self, ngpu, num_conv_layers, drop_conv2):
         super(OptGen, self).__init__()
         self.ngpu = ngpu
+        self.drop_conv2 = drop_conv2
         self.num_filters = [3] 
         self.num_filters.extend([2**(i+6) for i in range(num_conv_layers-1)])
         self.strides = [2]
@@ -53,7 +54,7 @@ class OptGen(nn.Module):
         self.out_size.append([self.num_filters[0], (1-1)*self.strides[0]+self.kernelSizes[0]-2*self.paddings[0]])
         self.num_modules = 3
         for i in range(1, num_conv_layers):
-            self.main.add_module(str(3*i-1)+"): TransConv_"+str(i+1), nn.ConvTranspose2d(in_channels=self.num_filters[i-1],
+            self.main.add_module(str(4*i-1)+"): TransConv_"+str(i+1), nn.ConvTranspose2d(in_channels=self.num_filters[i-1],
                                                             out_channels=self.num_filters[i],
                                                             kernel_size=self.kernelSizes[i],
                                                             stride=self.strides[i],
@@ -61,12 +62,13 @@ class OptGen(nn.Module):
                                                             bias=False))
             self.out_size.append([self.num_filters[i], (self.out_size[i-1][1]-1)*self.strides[i]+self.kernelSizes[i]-2*self.paddings[i]])
             self.num_modules += 1
-            if i + 1 < num_conv_layers: 
-                self.main.add_module(str(3*i)+"): BatchNorm_" + str(i+1), nn.BatchNorm2d(self.num_filters[i]))
-                self.main.add_module(str(1+3*i)+"): ReLU_" + str(i+1), nn.ReLU(True))
-                self.num_modules += 2
+            if i + 1 < num_conv_layers:
+                self.main.add_module(str(4*i)+"): DropOut_" + str(i+1), nn.Dropout2d(p=self.drop_conv2))
+                self.main.add_module(str(1+4*i)+"): BatchNorm_" + str(i+1), nn.BatchNorm2d(self.num_filters[i]))
+                self.main.add_module(str(2+4*i)+"): ReLU_" + str(i+1), nn.ReLU(True))
+                self.num_modules += 3
             
-        self.main.add_module(str(self.num_modules), nn.Tanh())
+        self.main.add_module(str(self.num_modules), nn.Sigmoid())
         ## print(f"Progression of the sizes in the deconvolution: {self.out_size}")
     
     def forward(self, input):
