@@ -9,4 +9,5 @@
 */.ipynb_checkpoints
 */*/.ipynb_checkpoints
 /src/models/mlruns
+src/models/__pycache__
 /data/cadastralExport
