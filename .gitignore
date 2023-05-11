@@ -1,13 +1,17 @@
 ### Files not to be commited ###
-/mlruns
-*/mlruns
+
+# Data files
 *.geojson
 *.csv
 *.gpkg
 *.qgz
-/.ipynb_checkpoints
-*/.ipynb_checkpoints
-*/*/.ipynb_checkpoints
-/src/models/mlruns
-src/models/__pycache__
-/data/cadastralExport
+
+# ML runs
+mlruns/
+
+#Python cached stuff
+__pycache__/
+.ipynb_checkpoints/
+
+# Cadastral images
+/data/cadastral
