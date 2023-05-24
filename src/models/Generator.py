@@ -68,7 +68,7 @@ class OptGen(nn.Module):
                 self.main.add_module(str(2+4*i)+"): ReLU_" + str(i+1), nn.ReLU(True))
                 self.num_modules += 3
             
-        self.main.add_module(str(self.num_modules), nn.Sigmoid())
+        self.main.add_module(str(self.num_modules), nn.Tanh()) # not sigmoid
         ## print(f"Progression of the sizes in the deconvolution: {self.out_size}")
     
     def forward(self, input):

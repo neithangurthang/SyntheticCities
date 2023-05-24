@@ -49,7 +49,11 @@ class OptDis(nn.Module):
             if i + 1 < num_conv_layers: 
                 self.main.add_module(str(3*i)+"): BatchNorm_" + str(i+1), nn.BatchNorm2d(self.num_filters[i]))
                 self.main.add_module(str(1+3*i)+"): LeakyReLU_" + str(i+1), nn.LeakyReLU(negative_slope=0.2, inplace=True))
-        self.main.add_module(str(3*i)+"): Sigmoid", nn.Sigmoid())
+        # NO ACTIVATION FUNCTION AT THE END: the idea is that the output domain for D is richer and can give a richer critict
+        # avoiding local minima for G
+        
+        # self.main.add_module(str(3*i)+"): Sigmoid", nn.Sigmoid()) 
+        # self.main.add_module(str(3*i)+"): Tanh", nn.tanh()) #  or nothing
     
     def forward(self, input):
         return self.main(input)

@@ -1,10 +1,13 @@
-# 1. Import Libraries
-#####################################################################
-#                                                                   #
-#      This code optimises G and D on custom cadastral images       #
-#                                                                   #
-#####################################################################
+"""
+this code optimises G and D on custom cadastral images
 
+"""
+
+##########################
+#                        #
+# 0 - Import Libraries   #
+#                        #
+##########################
 
 from __future__ import print_function
 import os
@@ -222,7 +225,7 @@ def train(netG, netD, device, dataloader, optimizerG, optimizerD, epochs):
             optimizerG.step()
 
             # Output training stats
-            if i % 50 == 0:
+            if i % 10 == 0:
                 print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
                       % (epoch, epochs, i, len(dataloader),
                          errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
