@@ -12,7 +12,7 @@ def normalizeRGB(t: torch.tensor):
     res = t.view(t.size(0), -1)
     res -= res.min(1, keepdim=True)[0]
     res /= res.max(1, keepdim=True)[0]
-    res = res.view(d)
+    res = res.view(d).float()
     return res
 
 def weights_init(m):
