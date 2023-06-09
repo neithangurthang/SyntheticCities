@@ -1,5 +1,10 @@
 import torch
 import torch.nn as nn
+import sys
+sys.path.append('../utils/')
+from utils import single_conv, conv_grid_search, conv_path_search
+
+# Discriminator Class WGAN
 
 class OptDis(nn.Module):
     def __init__(self, ngpu, num_conv_layers):
@@ -7,27 +12,28 @@ class OptDis(nn.Module):
         self.ngpu = ngpu
         self.num_filters = [2**(i+6) for i in range(num_conv_layers-1)]
         self.num_filters.append(1)
-        self.strides = [2]
-        self.paddings = [1]
-        self.kernelSizes = [4]
+        self.num_conv_layers = num_conv_layers
+        self.strides = []
+        self.paddings = []
+        self.kernelSizes = []
         self.numberChannels = 3 # could be an input
         self.out_size = []
-        if num_conv_layers == 3:
-            self.strides.extend([2,2])
-            self.paddings.extend([0,0])
-            self.kernelSizes.extend([14,10])
-        if num_conv_layers == 4:
-            self.strides.extend([2,2,2])
-            self.paddings.extend([1,0,0])
-            self.kernelSizes.extend([4,6,6])
-        if num_conv_layers == 5:
-            self.strides.extend([2,2,2,2])
-            self.paddings.extend([1,1,1,0])
-            self.kernelSizes.extend([4,4,4,4])
-        if num_conv_layers == 6:
-            self.strides.extend([2,2,2,2,2])
-            self.paddings.extend([1,1,1,1,1])
-            self.kernelSizes.extend([4,4,4,4,4])
+        if self.num_conv_layers == 3:
+            # solution 3: {'ins': [64, 22.0, 7.0], 'outs': [22.0, 7.0, 1.0], 'kernel_sizes': [3, 4, 7], 'paddings': [1, 0, 0], 'strides': [3, 3, 3]}
+            s3, c3 = conv_path_search(64, kernel_sizes = [3,4,5,7], 
+                                      strides = list(range(1,4)), paddings = [0,1], convs = 3)
+            solution = s3[-1]
+            self.strides = solution['strides']
+            self.paddings = solution['paddings']
+            self.kernelSizes = solution['kernel_sizes']
+        if self.num_conv_layers == 4:
+            # solution 2: {'ins': [64, 31.0, 14.0, 4.0], 'outs': [31.0, 14.0, 4.0, 1.0], 'kernel_sizes': [4, 5, 5, 4], 'paddings': [0, 0, 0, 0], 'strides': [2, 2, 3, 3]}
+            s4, c4 = conv_path_search(64, kernel_sizes = [3,4,5], 
+                                      strides = list(range(2,4)), paddings = [0], convs = 4)
+            solution = s4[-1] 
+            self.strides = solution['strides']
+            self.paddings = solution['paddings']
+            self.kernelSizes = solution['kernel_sizes']
             
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64 -> output nc = 2**6 x 32 x 32

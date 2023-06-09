@@ -3,6 +3,7 @@ import os
 import random
 import numpy as np
 import datetime
+import logging
 
 import torch
 import torch.nn as nn
@@ -66,9 +67,19 @@ def gradient_penalty(D, xr, xf):
 
     return gp
 
-def trainModel(netG, netD, device, dataloader, optimizerG, optimizerD, epochs, nz, fixed_noise, folder):
+def trainModel(netG, netD, device, dataloader, optimizerG, optimizerD, epochs, nz, fixed_noise, folder, AlternativeTraining: int = 0):
     img_list = []
+    isDLearning = False
     for epoch in range(epochs):
+        # switch between training G and D
+        if isDLearning and AlternativeTraining > 0:
+            if ((epoch + 1) % AlternativeTraining) == 0:
+                isDLearning = False
+        elif AlternativeTraining > 0:
+            if ((epoch + 1) % AlternativeTraining) == 0:
+                isDLearning = True
+        else:
+            isDLearning = True
         for i, data in enumerate(dataloader, 0):
             xr = data[0].to(device)
             b_size = xr.size(0)
@@ -87,22 +98,24 @@ def trainModel(netG, netD, device, dataloader, optimizerG, optimizerD, epochs, n
             # 1.3 gradient penalty
             gp = 0.2 * gradient_penalty(netD, xr, xf) # lambda gradient penalty = 0.2
             # aggregate all
-            loss_D = lossr + lossf + gp # lambda_gradient_penality * gp 
-            loss_D.backward()
-            optimizerD.step()
+            loss_D = lossr + lossf + gp 
+            if isDLearning or AlternativeTraining == 0 or epoch == 0:
+                loss_D.backward()
+                optimizerD.step()
             # 2. train G
             netG.zero_grad()
             xf = netG(z)
             predf = netD(xf)
             # maximize predf.mean()
             loss_G = -predf.mean() # to be minimized in the optimization, therefore -1 is the goal
-            loss_G.backward()
-            optimizerG.step()
+            if not isDLearning or AlternativeTraining == 0:
+                loss_G.backward()
+                optimizerG.step()
             # Save Losses for plotting later
             # G_losses.append(loss_G.item())
             # D_losses.append(loss_D.item())
         if epoch % 1 == 0:
-            print(f'Epoch: {epoch}/{epochs} | D Loss: {np.round(loss_D.item(), 4)}' + 
+            print(f'Epoch: {epoch}/{epochs} | D Learn: {isDLearning} | D Loss: {np.round(loss_D.item(), 4)}' + 
                   f'| ErrDReal: {np.round(lossr.item(), 4)} | ErrDFake: {np.round(lossf.item(), 4)} ' + 
                   f'| GradPenality: {np.round(gp.item(), 4)} | G Loss: {np.round(loss_G.item(), 4)}')
         if epoch % 10 == 0:
@@ -143,13 +156,11 @@ def test(netG, device, dataloader, nz):
 def suggest_hyperparameters(trial):
     lr = trial.suggest_float("lr", 0.00005, 0.0004) # 1e-4, 1e-3, log=True)
     dropoutG = trial.suggest_float("dropoutG", 0.0, 0.4, step=0.1)
-    # dropoutD = trial.suggest_float("dropoutD", 0.0, 0.4, step=0.1)
-    # optimizer_name = trial.suggest_categorical("optimizer_name", ["dropoutG", "Adadelta"])
-    convsG = trial.suggest_int("convsG", 3, 6, step=1)
-    convsD = trial.suggest_int("convsD", 3, 6, step=1)
-    return lr, convsG, convsD, dropoutG  #lr, optimizer_name, , dropoutD
+    convsG = trial.suggest_int("convsG", 3, 4, step=1)
+    convsD = trial.suggest_int("convsD", 3, 4, step=1)
+    return lr, convsG, convsD, dropoutG
 
-def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: 'str', experiment: 'str'):
+def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: 'str', experiment: 'str', AlternativeTraining:int = 0):
     '''
     params
     nz: random unit for the latent space
@@ -158,6 +169,7 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
     folder: relative path to be added to the destination paths
     experiment: name of the experiment to save the model
     '''
+    logging.basicConfig(filename=folder + experiment + '.log')
     best_val_loss = float('Inf')
     nz_dim = nz
     ngpu = torch.cuda.device_count() # Number of GPUs available. Use 0 for CPU mode.
@@ -184,7 +196,7 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
         
         print(f"Convolutions for D: {convsD} | Convolutions for G: {convsG} | LrRate: {np.round(lr,4)} | Dropout G: {dropoutG}")
         
-        img_list = trainModel(netG, netD, device, dataloader, optimizerG, optimizerD, n_epochs, nz, fixed_noise, folder)
+        img_list = trainModel(netG, netD, device, dataloader, optimizerG, optimizerD, n_epochs, nz, fixed_noise, folder, AlternativeTraining = AlternativeTraining)
         mse_errG = test(netG, device, dataloader, nz_dim)
         
         if best_mse_val is None:
@@ -192,6 +204,7 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
         if mse_errG <= best_mse_val:
             torch.save(netG, folder + "models/" + experiment + "Generator")
             torch.save(netD, folder + "models/" + experiment + "Discriminator")
+            logging.debug(f'Learning Rate: {lr} Convs G: {convsG} | Convs D: {convsD} | Dropout G: {dropoutG}')
             for i, img in enumerate(img_list):
                 if i < 10:
                     i = '0' + str(i)

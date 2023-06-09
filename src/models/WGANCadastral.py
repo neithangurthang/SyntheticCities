@@ -15,6 +15,7 @@ import random
 import numpy as np
 import datetime
 import shutil
+import logging
 
 import torch
 import torch.nn as nn
@@ -38,10 +39,12 @@ import matplotlib.animation as animation
 from IPython.display import HTML # to embed html in the Ipython output
 
 sys.path.append("../../src/models/")
+sys.path.append("../../src/utils/")
+
 from Generator import OptGen
 from Discriminator import OptDis
-from utility_functions import normalizeRGB
-from utility_functions import weights_init
+from utils import normalizeRGB
+from utils import weights_init
 from OptimisationFunctions import suggest_hyperparameters, trainModel, test, objective
 
 #######################
@@ -50,7 +53,7 @@ from OptimisationFunctions import suggest_hyperparameters, trainModel, test, obj
 #                     #
 #######################
 
-dataroot = "../../../cadastralExport" # Root directory for train dataset
+dataroot = "../../../cadastralExportRGB" # Root directory for train dataset
 workers = 2 # Number of workers for dataloader
 batch_size = 64 # Batch size during training
 image_size = 64 # Spatial size of training images. All images will be resized to this
@@ -58,7 +61,8 @@ nc = 3 # Number of channels in the training images. For color images this is 3
 nz = 100 # Size of z latent vector (i.e. size of generator input)
 ngf = 64 # Size of feature maps in generator
 ndf = 64 # Size of feature maps in discriminator
-num_epochs = 500 # Number of training epochs
+num_epochs = 1000 # Number of training epochs
+trials = 10 # number of trials
 lr = 0.0002 # Learning rate for optimizers
 beta1 = 0.5 # Beta1 hyperparam for Adam optimizers
 lambda_gradient_penality = 0.2 # to adjust the Wasserstein distance with interpolation between real and fake data
@@ -103,12 +107,12 @@ fixed_noise = torch.randn(64, nz, 1, 1, device=device)
 run_tag = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 experiment_id = mlflow.create_experiment(
-    f"../../reports/WGAN_Exp_{run_tag}",
+    f"../../reports/WGAN_Exp_RGB_{run_tag}",
     tags={"version": "v1", "priority": "P1"},
 )
 
 mlflow.set_experiment(experiment_id=experiment_id)
-study = optuna.create_study(study_name=f"WGAN_study_{run_tag}", direction="minimize")
+study = optuna.create_study(study_name=f"WGAN_study_RGB_{run_tag}", direction="minimize")
 
-func = lambda trial: objective(trial, nz, dataloader, n_epochs = num_epochs, folder = '../../', experiment='WGAN_Cadastral_')
-study.optimize(func, n_trials=20)
+func = lambda trial: objective(trial, nz, dataloader, n_epochs = num_epochs, folder = '../../', experiment='WGAN_CadastralRGB_', AlternativeTraining = 50)
+study.optimize(func, n_trials=trials)
