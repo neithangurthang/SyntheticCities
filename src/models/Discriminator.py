@@ -7,6 +7,11 @@ from utils import single_conv, conv_grid_search, conv_path_search
 # Discriminator Class WGAN
 
 class OptDis(nn.Module):
+    '''
+    Returns a critic on the probability that an image 3x64x64 is real or fake
+    high == real
+    low == fake
+    '''
     def __init__(self, ngpu, num_conv_layers):
         super(OptDis, self).__init__()
         self.ngpu = ngpu
