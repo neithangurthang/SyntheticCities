@@ -215,26 +215,25 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         mlflow.log_param("device", device)
         
-        netD = OptDis(ngpu, convsD)
+        netD = OptDis(ngpu, convsD).to(device)
         if experiment == 'WGANRGB':
-            netG = OptGen(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG)
+            netG = OptGen(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG).to(device)
+            print(netG)
         elif experiment == 'WGANGreyscale':
-            netG = OptGenGreyscale(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG)
+            netG = OptGenGreyscale(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG).to(device)
+            print(netG)
         else:
             print('wrong type of expertiment, please choose between WGANRGB and WGANGreyscale')
             return
         
+        netG.apply(weights_init)
+        netD.apply(weights_init)
         # Data Parallelisation
         if torch.cuda.device_count() > 1:
             # using 7 cudas, as agreed with Pavel
+            # look at match_parallel_workers: we don't know the ids of the available cudas
             netG = nn.DataParallel(model = netG, device_ids=list(range(min(torch.cuda.device(), 7))))
             netD = nn.DataParallel(model = netD, device_ids=list(range(min(torch.cuda.device(), 7))))
-           
-        netG.to(device)
-        netD.to(device)
-        
-        netG.apply(weights_init)
-        netD.apply(weights_init)
             
         optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999)) 
         optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999)) 
@@ -243,7 +242,10 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
         if logger:
             logger.debug("#"*35)
             logger.debug(f"Convolutions for D: {convsD} | Convolutions for G: {convsG} | LrRate: {np.round(lr,4)} | Dropout G: {dropoutG}")
-        img_list = trainModel(netG, netD, device, dataloader, optimizerG, optimizerD, fixed_noise, folder, n_epochs, nz, experiment= experiment, AlternativeTraining = AlternativeTraining, logger = logger)
+        img_list = trainModel(netG = netG, netD = netD, device = device, dataloader = dataloader, 
+                              optimizerG = optimizerG, optimizerD = optimizerD, fixed_noise = fixed_noise, folder = folder, 
+                              epochs = n_epochs, nz = nz, experiment = experiment, AlternativeTraining = AlternativeTraining, 
+                              logger = logger)
         mse_errG = test(netG, device, dataloader, nz_dim)
         
         if best_mse_val is None:
@@ -260,5 +262,5 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
                 save_image(img, path)
         best_mse_val = min(best_mse_val, mse_errG)
         mlflow.log_metric("mse_errG", mse_errG)
-
+        
     return best_mse_val
