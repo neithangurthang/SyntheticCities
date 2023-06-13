@@ -61,7 +61,7 @@ nc = 3 # Number of channels in the training images. For color images this is 3
 nz = 100 # Size of z latent vector (i.e. size of generator input)
 ngf = 64 # Size of feature maps in generator
 ndf = 64 # Size of feature maps in discriminator
-num_epochs = 50 # Number of training epochs
+num_epochs = 5000 # Number of training epochs
 trials = 1 # number of trials
 AltTrain = 0 # epochs alternative training 
 lr = 0.0002 # Learning rate for optimizers
@@ -96,7 +96,7 @@ dataset = dset.ImageFolder(root=dataroot,
                                transforms.CenterCrop(image_size * 11),
                                transforms.Resize(image_size),
                                transforms.ToTensor(),
-                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                               # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                            ]))
 
 
