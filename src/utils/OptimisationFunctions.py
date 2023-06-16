@@ -27,8 +27,17 @@ import matplotlib.animation as animation
 from IPython.display import HTML # to embed html in the Ipython output
 
 sys.path.append("../../src/models/")
+sys.path.append("../../src/utils/")
 from Generator import OptGen, OptGenGreyscale
 from Discriminator import OptDis
+
+import torch.multiprocessing as mp
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed import init_process_group, destroy_process_group
+import os
+
+
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -228,6 +237,89 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
         
         netG.apply(weights_init)
         netD.apply(weights_init)
+        
+        # Data Parallelisation
+        if torch.cuda.device_count() > 1:
+            # using 7 cudas, as agreed with Pavel
+            # look at match_parallel_workers: we don't know the ids of the available cudas
+            netG = nn.DataParallel(model = netG, device_ids=list(range(min(torch.cuda.device(), 7))))
+            netD = nn.DataParallel(model = netD, device_ids=list(range(min(torch.cuda.device(), 7))))
+            
+        optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999)) 
+        optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999)) 
+        
+        print(f"Convolutions for D: {convsD} | Convolutions for G: {convsG} | LrRate: {np.round(lr,4)} | Dropout G: {dropoutG}")
+        if logger:
+            logger.debug("#"*35)
+            logger.debug(f"Convolutions for D: {convsD} | Convolutions for G: {convsG} | LrRate: {np.round(lr,4)} | Dropout G: {dropoutG}")
+        img_list = trainModel(netG = netG, netD = netD, device = device, dataloader = dataloader, 
+                              optimizerG = optimizerG, optimizerD = optimizerD, fixed_noise = fixed_noise, folder = folder, 
+                              epochs = n_epochs, nz = nz, experiment = experiment, AlternativeTraining = AlternativeTraining, 
+                              logger = logger)
+        mse_errG = test(netG, device, dataloader, nz_dim)
+        
+        if best_mse_val is None:
+            best_mse_val = mse_errG
+        if mse_errG <= best_mse_val:
+            torch.save(netG, folder + "models/" + experiment + "Generator")
+            torch.save(netD, folder + "models/" + experiment + "Discriminator")
+            if logger:
+                logger.debug(f'BEST TRIAL: --> Learning Rate: {lr} Convs G: {convsG} | Convs D: {convsD} | Dropout G: {dropoutG} | MSE: {best_mse_val}')
+            for i, img in enumerate(img_list):
+                if i < 10:
+                    i = '0' + str(i)
+                path = folder + 'reports/WGANBestImages/WGAN' + experiment + 'BestImg_Step' + str(i) + '.png'
+                save_image(img, path)
+        best_mse_val = min(best_mse_val, mse_errG)
+        mlflow.log_metric("mse_errG", mse_errG)
+        
+    return best_mse_val
+
+
+def objective128(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: 'str', experiment: 'str' = 'WGANRGB', AlternativeTraining:int = 0, logger: logging.Logger = None):
+    '''
+    params
+    nz: random unit for the latent space
+    dataloader: instance of torchvision.datasets
+    n_epochs: number of epochs training the model
+    folder: relative path to be added to the destination paths
+    experiment: name of the experiment to save the model 
+        -> WGANRGB -> probability to belong to a class
+        -> WGANGreyscale -> RGB values
+    '''
+    # logging.basicConfig(filename=folder + experiment + '.log')
+    best_val_loss = float('Inf')
+    nz_dim = nz
+    ngpu = torch.cuda.device_count() # Number of GPUs available. Use 0 for CPU mode.
+    best_mse_val = None
+    device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+    fixed_noise = torch.randn(64, nz, 1, 1, device=device)
+    beta1 = 0.5
+    
+    with mlflow.start_run():
+        
+        lr, convsG, convsD, dropoutG = suggest_hyperparameters(trial) # dropoutD, 
+        # n_epochs = 50 #1000
+        torch.manual_seed(123)
+        mlflow.log_params(trial.params)
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        mlflow.log_param("device", device)
+        
+        netD = OptDis(ngpu, convsD).to(device)
+        if experiment == 'WGANRGB':
+            netG = OptGen(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG).to(device)
+            print(netG)
+        elif experiment == 'WGANGreyscale':
+            netG = OptGenGreyscale(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG).to(device)
+            print(netG)
+        else:
+            print('wrong type of expertiment, please choose between WGANRGB and WGANGreyscale')
+            return
+        
+        netG.apply(weights_init)
+        netD.apply(weights_init)
+        
         # Data Parallelisation
         if torch.cuda.device_count() > 1:
             # using 7 cudas, as agreed with Pavel

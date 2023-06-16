@@ -58,21 +58,14 @@ def conv_path_search(ins: int, kernel_sizes: list[int], strides: list[int], padd
     This function returns possible convolution paths to return a vector with dimensions filter, 1, 1
     '''
     solutions = []
-    # 
-    # results = {'ins': [ins], 'outs': [], 'kernel_sizes': [], 'paddings': [], 'strides': []}
-    # candidates = {'ins': [ins], 'outs': [], 'kernel_sizes': [], 'paddings': [], 'strides': []}
     candidates = conv_grid_search(ins, kernel_sizes, strides, paddings)
     for conv in range(convs - 1):
         new_candidate_list = []
         for c in candidates:
-            # print(f"candidate: {c}")
             new_ins = c['outs'][-1]
             new_candidates = conv_grid_search(new_ins, kernel_sizes, strides, paddings)
-            # print(f"new candidates: {new_candidates}")
             for new in new_candidates:
-                # thread = dict(c)
                 thread = copy.deepcopy(c)
-                # print(f"thread: {thread}")
                 thread['ins'].append(new['ins'][0])
                 thread['outs'].append(new['outs'][0])
                 thread['kernel_sizes'].append(new['kernel_sizes'][0])
@@ -81,13 +74,26 @@ def conv_path_search(ins: int, kernel_sizes: list[int], strides: list[int], padd
                 new_candidate_list.append(thread)
                 # print(f'c: {c}')
             candidates.remove(c)
-        # print(f"new candidates list: {new_candidate_list}")
         candidates = new_candidate_list[:]
-        # print(f"candidates: {candidates}")
-        # print(f"candidates: {candidates}")
     for cand in candidates:
+        # condition 1: returns dimension 1
         if cand['outs'][-1] == 1:
-            solutions.append(cand)
+            # condition 2: kernel size larger or equal to stride
+            isStrideSmallerKernel = True
+            # condition 3: decreasing dimension of the kernel
+            isKernelDecreasging = True
+            # condition 4: decreasing stride
+            isStrideDecreasing = True
+            for i in range(len(cand['strides'])):
+                if cand['strides'][i] > cand['kernel_sizes'][i]:
+                    isStrideSmallerKernel = False
+                if i > 0:
+                    if cand['kernel_sizes'][i] > cand['kernel_sizes'][i - 1]:
+                        isKernelDecreasging = False
+                    if cand['strides'][i] > cand['strides'][i - 1]:
+                        isStrideDecreasing = False
+            if isStrideSmallerKernel and isKernelDecreasging and isStrideDecreasing:
+                solutions.append(cand)
     return solutions, candidates
 
 ######
