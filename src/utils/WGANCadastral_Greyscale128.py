@@ -1,5 +1,5 @@
 """
-this code optimises G and D on cadastral images
+this code optimises G and D on cadastral images with 128 x 128 px resolution
 
 """
 
@@ -114,11 +114,7 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
 
 
 fixed_noise = torch.randn(64, nz, 1, 1, device=device)
-if torch.cuda.device_count() > 1:
-    netGCadastralGreyscale128 = nn.DataParallel(netGCadastralGreyscale128)
-    netDCadastralgreyscale128 = nn.DataParallel(netDCadastralgreyscale128)
     
-
 ##################
 #                #
 # 3 - TRAIN      #
@@ -130,6 +126,10 @@ np.random.seed(23)
 
 netDCadastralgreyscale128 = OptDis128(ngpu, 3)
 netGCadastralGreyscale128 = OptGenGreyscale128(ngpu=ngpu, num_conv_layers=4, drop_conv2=0.3)
+
+if torch.cuda.device_count() > 1:
+    netGCadastralGreyscale128 = nn.DataParallel(netGCadastralGreyscale128)
+    netDCadastralgreyscale128 = nn.DataParallel(netDCadastralgreyscale128)
 
 netGCadastralGreyscale128.to(device)
 netDCadastralgreyscale128.to(device)

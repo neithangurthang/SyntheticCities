@@ -53,7 +53,7 @@ def conv_grid_search(ins: int, kernel_sizes: list[int], strides: list[int], padd
                     results.append(result)
     return results
 
-def conv_path_search(ins: int, kernel_sizes: list[int], strides: list[int], paddings: list[int], convs: int = 3, out: int = 1):
+def conv_path_search(ins: int, kernel_sizes: list[int], strides: list[int], paddings: list[int], convs: int = 3, out: int = 1, verbose:bool = False):
     '''
     This function returns possible convolution paths to return a vector with dimensions filter, 1, 1
     '''
@@ -76,29 +76,76 @@ def conv_path_search(ins: int, kernel_sizes: list[int], strides: list[int], padd
             candidates.remove(c)
         candidates = new_candidate_list[:]
     for cand in candidates:
-        # condition 1: returns dimension 1
-        if cand['outs'][-1] == out:
-            # condition 2: kernel size larger or equal to stride
-            isStrideSmallerKernel = True
-            # condition 3: decreasing dimension of the kernel
-            isKernelDecreasging = True
-            # condition 4: decreasing stride
-            isStrideDecreasing = True
-            # condition 5: decreasing paddings
-            isPaddingDecreasing = True
-            for i in range(len(cand['strides'])):
-                if cand['strides'][i] > cand['kernel_sizes'][i]:
-                    isStrideSmallerKernel = False
-                if i > 0:
-                    if cand['kernel_sizes'][i] > cand['kernel_sizes'][i - 1]:
-                        isKernelDecreasging = False
-                    if cand['strides'][i] > cand['strides'][i - 1]:
-                        isStrideDecreasing = False
-                    if cand['paddings'][i] > cand['paddings'][i - 1]:
-                        isPaddingDecreasing = False
-            if isStrideSmallerKernel and isKernelDecreasging and isStrideDecreasing and isPaddingDecreasing:
-                solutions.append(cand)
+        res = test_candidate(candidate = cand, out = out, verbose = verbose)
+        if res:
+            solutions.append(res)
+        ## # condition 1: returns dimension 1
+        ## if cand['outs'][-1] == out:
+        ##     # condition 2: kernel size larger or equal to stride
+        ##     isStrideSmallerKernel = True
+        ##     # condition 3: decreasing dimension of the kernel
+        ##     isKernelDecreasging = True
+        ##     # condition 4: decreasing stride
+        ##     isStrideDecreasing = True
+        ##     # condition 5: decreasing paddings
+        ##     isPaddingDecreasing = True
+        ##     for i in range(len(cand['strides'])):
+        ##         if cand['strides'][i] > cand['kernel_sizes'][i]:
+        ##             isStrideSmallerKernel = False
+        ##         if i > 0:
+        ##             if cand['kernel_sizes'][i] > cand['kernel_sizes'][i - 1]:
+        ##                 isKernelDecreasging = False
+        ##             if cand['strides'][i] > cand['strides'][i - 1]:
+        ##                 isStrideDecreasing = False
+        ##             if cand['paddings'][i] > cand['paddings'][i - 1]:
+        ##                 isPaddingDecreasing = False
+        ##     if isStrideSmallerKernel and isKernelDecreasging and isStrideDecreasing and isPaddingDecreasing:
+        ##         solutions.append(cand)
     return solutions, candidates
+
+def test_candidate(candidate: dict, out: int, verbose = False):
+    '''
+    This function tests if a candidate complies with the criteria
+    
+    '''
+    # condition 1: returns dimension 1
+    condition1 = candidate['outs'][-1] == out
+    # condition 2: kernel size larger or equal to stride
+    isStrideSmallerKernel = True
+    # condition 3: decreasing dimension of the kernel
+    isKernelDecreasging = True
+    # condition 4: decreasing stride
+    isStrideDecreasing = True
+    # condition 5: decreasing paddings
+    isPaddingDecreasing = True
+    for i in range(len(candidate['strides'])):
+        if candidate['strides'][i] > candidate['kernel_sizes'][i]:
+            isStrideSmallerKernel = False
+        if i > 0:
+            if candidate['kernel_sizes'][i] > candidate['kernel_sizes'][i - 1]:
+                isKernelDecreasging = False
+            if candidate['strides'][i] > candidate['strides'][i - 1]:
+                isStrideDecreasing = False
+            if candidate['paddings'][i] > candidate['paddings'][i - 1]:
+                isPaddingDecreasing = False
+    conditions = condition1 and isStrideSmallerKernel and isKernelDecreasging and isStrideDecreasing and isPaddingDecreasing
+    if conditions:
+        return candidate
+    else:
+        if verbose:
+            print('#'*20)
+            print(candidate)
+            if not condition1:
+                print(f'Output {candidate["outs"][-1]} different than target: {out}')
+            if not isStrideSmallerKernel:
+                print(f'Strides {candidate["strides"]} larger than kernel sizes: {candidate["kernel_sizes"]}')
+            if not isKernelDecreasging:
+                print(f'Kernel size is not decreasing: {candidate["kernel_sizes"]}')
+            if not isStrideDecreasing:
+                print(f'Stride is not decreasing: {candidate["strides"]}')
+            if not isPaddingDecreasing:
+                print(f'Padding is not decreasing: {candidate["paddings"]}')
+            return None
 
 ######
 ###### REPRESENT PROBABILITIES AS RGB COLORS

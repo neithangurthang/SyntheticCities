@@ -157,6 +157,9 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
             print(f'Epoch: {epoch}/{epochs} | D Learn: {isDLearning} | D Loss: {np.round(loss_D.item(), 4)}' + 
                   f'| ErrDReal: {np.round(lossr.item(), 4)} | ErrDFake: {np.round(lossf.item(), 4)} ' + 
                   f'| GradPenality: {np.round(gp.item(), 4)} | G Loss: {np.round(loss_G.item(), 4)}')
+            # SAVING MODEL
+            torch.save(netG, folder + "models/" + experiment + "_NetG_Training")
+            torch.save(netD, folder + "models/" + experiment + "_NetD_Training")
             with torch.no_grad():
                 fake = netG(fixed_noise).detach().cpu()
                 i = random.sample(range(b_size), 1)[0]
