@@ -12,10 +12,16 @@ from tqdm.auto import tqdm
 from torchvision import transforms
 # from torchvision.datasets import MNIST
 from torchvision.utils import make_grid, save_image
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 import torchvision.datasets as dset # all datasets available in torch vision. not sure if needed here
 import torchvision.utils as vutils # draw bounding box, segmantation mask, keypoints. convert to rgb, make grid, save_image
 import torch.optim as optim # optimizer for example optim.Adam([var1, var2], lr=0.0001)
+
+import torch.multiprocessing as mp
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed import init_process_group, destroy_process_group
+import os
 
 import optuna
 from optuna.trial import TrialState
@@ -28,8 +34,9 @@ from IPython.display import HTML # to embed html in the Ipython output
 
 sys.path.append("../../src/models/")
 sys.path.append("../../src/utils/")
-from Generator import OptGen, OptGenGreyscale
-from Discriminator import OptDis
+from Generator import OptGen, OptGenGreyscale, OptGenGreyscale128
+from Discriminator import OptDis, OptDis128
+from ddp_utils import ddp_setup, prepare_dataloader
 
 import torch.multiprocessing as mp
 from torch.utils.data.distributed import DistributedSampler
@@ -306,12 +313,12 @@ def objective128(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         mlflow.log_param("device", device)
         
-        netD = OptDis(ngpu, convsD).to(device)
+        netD = OptDis128(ngpu, convsD).to(device)
         if experiment == 'WGANRGB':
             netG = OptGen(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG).to(device)
             print(netG)
         elif experiment == 'WGANGreyscale':
-            netG = OptGenGreyscale(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG).to(device)
+            netG = OptGenGreyscale128(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG).to(device)
             print(netG)
         else:
             print('wrong type of expertiment, please choose between WGANRGB and WGANGreyscale')

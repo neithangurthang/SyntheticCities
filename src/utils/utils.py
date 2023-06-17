@@ -53,7 +53,7 @@ def conv_grid_search(ins: int, kernel_sizes: list[int], strides: list[int], padd
                     results.append(result)
     return results
 
-def conv_path_search(ins: int, kernel_sizes: list[int], strides: list[int], paddings: list[int], convs: int = 3):
+def conv_path_search(ins: int, kernel_sizes: list[int], strides: list[int], paddings: list[int], convs: int = 3, out: int = 1):
     '''
     This function returns possible convolution paths to return a vector with dimensions filter, 1, 1
     '''
@@ -77,13 +77,15 @@ def conv_path_search(ins: int, kernel_sizes: list[int], strides: list[int], padd
         candidates = new_candidate_list[:]
     for cand in candidates:
         # condition 1: returns dimension 1
-        if cand['outs'][-1] == 1:
+        if cand['outs'][-1] == out:
             # condition 2: kernel size larger or equal to stride
             isStrideSmallerKernel = True
             # condition 3: decreasing dimension of the kernel
             isKernelDecreasging = True
             # condition 4: decreasing stride
             isStrideDecreasing = True
+            # condition 5: decreasing paddings
+            isPaddingDecreasing = True
             for i in range(len(cand['strides'])):
                 if cand['strides'][i] > cand['kernel_sizes'][i]:
                     isStrideSmallerKernel = False
@@ -92,7 +94,9 @@ def conv_path_search(ins: int, kernel_sizes: list[int], strides: list[int], padd
                         isKernelDecreasging = False
                     if cand['strides'][i] > cand['strides'][i - 1]:
                         isStrideDecreasing = False
-            if isStrideSmallerKernel and isKernelDecreasging and isStrideDecreasing:
+                    if cand['paddings'][i] > cand['paddings'][i - 1]:
+                        isPaddingDecreasing = False
+            if isStrideSmallerKernel and isKernelDecreasging and isStrideDecreasing and isPaddingDecreasing:
                 solutions.append(cand)
     return solutions, candidates
 

@@ -1,4 +1,6 @@
 # UTILITY FUNCTIONS FOR DATA DISTRIBUTED PARALLELIZATION
+import torchvision.datasets as dset
+from torch.utils.data import DataLoader, Dataset
 
 def prepare_dataloader(dataset: Dataset, batch_size: int):
     return DataLoader(

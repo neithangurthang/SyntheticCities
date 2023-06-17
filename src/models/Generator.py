@@ -81,9 +81,10 @@ class OptGen(nn.Module):
         ## print(f"Progression of the sizes in the deconvolution: {self.out_size}")
     
     def forward(self, x):
+        x = x.view(-1, 3, 6, 6)
         return self.main(x)
-    
-# 
+
+
     
 class OptGenGreyscale(nn.Module):
     '''
@@ -179,30 +180,31 @@ class OptGenGreyscale128(nn.Module):
         self.kernelSizes = []
         self.out_size = []
         if self.num_conv_layers == 3:
-            # solution 2: {'ins': [128, 18.0, 2.0], 'outs': [18.0, 2.0, 1.0], 'kernel_sizes': [11, 11, 2], 'paddings': [1, 0, 0], 'strides': [7, 7, 2]}
-            s3, c3 = conv_path_search(128, kernel_sizes = [15, 13, 11, 9, 7, 5, 3, 2], 
-                                      strides = list(range(1, 8)), paddings = [0,1], convs = 3)
+            # solution: {'ins': [128, 42.0, 14.0], 'outs': [42.0, 14.0, 4.0], 'kernel_sizes': [7, 5, 5], 'paddings': [1, 1, 0], 'strides': [3, 3, 3]}
+            s3, c3 = conv_path_search(128, kernel_sizes = [7, 5, 3], 
+                          strides = [1,3], paddings = [0,1], convs = 3, out = 4)
             solution = s3[-1]
             self.strides = solution['strides']
             self.paddings = solution['paddings']
             self.kernelSizes = solution['kernel_sizes']
         if self.num_conv_layers == 4:
-            # solution 1: {'ins': [128, 18.0, 10.0, 2.0], 'outs': [18.0, 10.0, 2.0, 1.0], 'kernel_sizes': [9, 9, 9, 2], 'paddings': [0, 0, 0, 0], 'strides': [7, 1, 1, 1]}
-            s4, c4 = conv_path_search(128, kernel_sizes = [2,3,5,7,9,11,13,15], 
-                                      strides = list(range(1,10)), paddings = [0], convs = 4)
+            # solution: {'ins': [128, 42.0, 14.0, 4.0], 'outs': [42.0, 14.0, 4.0, 4.0], 'kernel_sizes': [7, 5, 5, 1], 'paddings': [1, 1, 0, 0], 'strides': [3, 3, 3, 1]}
+            s4, c4 = conv_path_search(128, kernel_sizes = [7, 5, 3, 1], 
+                          strides = [1,3,5,7], paddings = [0,1], convs = 4, out = 4)
             solution = s4[-1] 
             self.strides = solution['strides']
             self.paddings = solution['paddings']
             self.kernelSizes = solution['kernel_sizes']
         # same scheme as for DNet, but inverted
         self.num_filters.reverse()
+        self.num_filters.append(2**9) #could be a param
         self.strides.reverse()
         self.paddings.reverse()
         self.kernelSizes.reverse()
         
         self.main = nn.Sequential(
             # input is Z, going into a convolution with dimensions c=nz, h=1, w=1
-            nn.ConvTranspose2d(in_channels=nz, #deconvolution!
+            nn.ConvTranspose2d(in_channels=self.num_filters[0], #deconvolution!
                                out_channels=self.num_filters[0], #ngf * 8, 
                                kernel_size=self.kernelSizes[0], 
                                stride=self.strides[0], 
@@ -234,4 +236,6 @@ class OptGenGreyscale128(nn.Module):
         ## print(f"Progression of the sizes in the deconvolution: {self.out_size}")
     
     def forward(self, x):
+        # starting with a pic 4x4 pixels with 2**8 channels
+        x = x.view(-1, self.num_filters[0], 4, 4) 
         return self.main(x)

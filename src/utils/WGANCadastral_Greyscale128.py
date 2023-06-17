@@ -22,9 +22,8 @@ import torch.nn as nn
 from torch import autograd
 from tqdm.auto import tqdm
 from torchvision import transforms
-# from torchvision.datasets import MNIST
 from torchvision.utils import make_grid
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 import torchvision.datasets as dset # all datasets available in torch vision. not sure if needed here
 import torchvision.utils as vutils # draw bounding box, segmantation mask, keypoints. convert to rgb, make grid, save_image
 import torch.optim as optim # optimizer for example optim.Adam([var1, var2], lr=0.0001)
@@ -96,16 +95,7 @@ logger.addHandler(file_handler)
 world_size = torch.cuda.device_count() # also in 6. Run Training
 print(f'number of cudas = {world_size}')
 
-def ddp_setup(rank, world_size):
-    '''
-    Args:
-            rank: unique identifier for each process -> rank is given automatically by mp.spawn()
-            world_size: total number of processes
-    '''
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
-    init_process_group(backend='nccl', rank = rank, world_size = world_size)
-    torch.cuda.set_device(rank)
+ddp_setup(rank =  ,world_size = world_size)
 
 #####################
 #                   #
