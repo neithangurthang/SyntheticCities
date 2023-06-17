@@ -34,8 +34,13 @@ from IPython.display import HTML # to embed html in the Ipython output
 
 sys.path.append("../../src/models/")
 sys.path.append("../../src/utils/")
-from Generator import OptGen, OptGenGreyscale, OptGenGreyscale128
-from Discriminator import OptDis, OptDis128
+from GNet64_RGB import OptGen
+from GNet64_Greyscale import OptGenGreyscale
+from GNet128_Greyscale import OptGenGreyscale128
+from GNet256_Greyscale import OptGenGreyscale256
+from DNet64 import OptDis
+from DNet128 import OptDis128
+from DNet256 import OptDis256
 from ddp_utils import ddp_setup, prepare_dataloader
 
 import torch.multiprocessing as mp

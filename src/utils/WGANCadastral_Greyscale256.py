@@ -76,6 +76,7 @@ lambda_gradient_penality = 0.2 # to adjust the Wasserstein distance with interpo
 ngpu = torch.cuda.device_count() # Number of GPUs available. Use 0 for CPU mode.
 # Decide which device we want to run on
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+experiment = 'Greyscale256'
 
 # logging
 logger = logging.getLogger(__name__)
@@ -141,11 +142,11 @@ optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
 img_list_greyscale = trainModel(netG = netG, netD = netD, 
                                 device = device, dataloader = dataloader, optimizerG = optimizerG,
                                 optimizerD = optimizerD, fixed_noise=fixed_noise, folder='../../',  
-                                epochs=num_epochs, nz=nz, experiment = 'Greyscale256', AlternativeTraining = 0,
+                                epochs=num_epochs, nz=nz, experiment = experiment, AlternativeTraining = 0,
                                 logger=logger)
 
-torch.save(netG, folder + "models/" + experiment + "_NetG_Trained")
-torch.save(netD, folder + "models/" + experiment + "_NetD_Trained")
+torch.save(netG, '../../' + "models/" + experiment + "_NetG_Trained")
+torch.save(netD, '../../' + "models/" + experiment + "_NetD_Trained")
 
 ##################
 #                #
