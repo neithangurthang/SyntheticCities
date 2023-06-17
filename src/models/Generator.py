@@ -173,7 +173,8 @@ class OptGenGreyscale128(nn.Module):
         self.ngpu = ngpu
         self.drop_conv2 = drop_conv2
         self.num_filters = [3] 
-        self.num_filters.extend([2**(i+6) for i in range(num_conv_layers-1)])
+        self.num_filters.extend([2**(i+5) for i in range(num_conv_layers-2)])
+        self.num_filters.append(2**4) # starting levels -> total 4 x 4 x 16 = 256 params -> tried 2**9 channels, the model is too slow
         self.num_conv_layers = num_conv_layers
         self.strides = []
         self.paddings = []
@@ -197,7 +198,6 @@ class OptGenGreyscale128(nn.Module):
             self.kernelSizes = solution['kernel_sizes']
         # same scheme as for DNet, but inverted
         self.num_filters.reverse()
-        self.num_filters.append(2**9) #could be a param
         self.strides.reverse()
         self.paddings.reverse()
         self.kernelSizes.reverse()
@@ -236,6 +236,6 @@ class OptGenGreyscale128(nn.Module):
         ## print(f"Progression of the sizes in the deconvolution: {self.out_size}")
     
     def forward(self, x):
-        # starting with a pic 4x4 pixels with 2**8 channels
+        # starting with a pic 4x4 pixels with 2**4 channels
         x = x.view(-1, self.num_filters[0], 4, 4) 
         return self.main(x)

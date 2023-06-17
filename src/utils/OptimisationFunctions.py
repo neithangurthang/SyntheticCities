@@ -83,7 +83,7 @@ def gradient_penalty(D, xr, xf):
 
 def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.dataloader.DataLoader, 
                optimizerG, optimizerD, 
-               fixed_noise:torch.Tensor, folder: str, epochs: int = 10, nz: int = 100, 
+               fixed_noise:torch.Tensor, folder: str, epochs: int = 10, nz: int = 100,
                experiment: str = 'WGANRGB',
                AlternativeTraining: int = 0, logger: logging.Logger = None):
     '''
@@ -157,8 +157,6 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
             print(f'Epoch: {epoch}/{epochs} | D Learn: {isDLearning} | D Loss: {np.round(loss_D.item(), 4)}' + 
                   f'| ErrDReal: {np.round(lossr.item(), 4)} | ErrDFake: {np.round(lossf.item(), 4)} ' + 
                   f'| GradPenality: {np.round(gp.item(), 4)} | G Loss: {np.round(loss_G.item(), 4)}')
-        if epoch % 10 == 0:
-            # Generate and save fake images to monitor the progress
             with torch.no_grad():
                 fake = netG(fixed_noise).detach().cpu()
                 i = random.sample(range(b_size), 1)[0]

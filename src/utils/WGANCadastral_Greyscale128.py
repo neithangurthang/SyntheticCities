@@ -64,7 +64,7 @@ workers = 2 # Number of workers for dataloader
 batch_size = 64 # Batch size during training
 image_size = 128 # Spatial size of training images. All images will be resized to this
 nc = 3 # Number of channels in the training images. For color images this is 3
-nz = 100 # Size of z latent vector (i.e. size of generator input)
+nz = 2**4*4*4 # noise for one single image
 ngf = 64 # Size of feature maps in generator
 ndf = 64 # Size of feature maps in discriminator
 num_epochs = 2500 # Number of training epochs
@@ -85,17 +85,6 @@ file_handler = logging.FileHandler('../../reports/WGAN_CadastralGreyscale128_Opt
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-##################################
-#                                #
-# 2 - Data Distributed Parallel  #
-#                                #
-##################################
-
-
-world_size = torch.cuda.device_count() # also in 6. Run Training
-print(f'number of cudas = {world_size}')
-
-ddp_setup(rank =  ,world_size = world_size)
 
 #####################
 #                   #
@@ -110,6 +99,7 @@ if os.path.exists(dataroot + '/.ipynb_checkpoints'):
 # We can use an image folder dataset the way we have it setup.
 dataset = dset.ImageFolder(root=dataroot,
                            transform=transforms.Compose([
+                               transforms.RandomRotation(degrees=(0,180), expand = False),
                                transforms.CenterCrop(image_size * 5),
                                transforms.Resize(image_size),
                                transforms.ToTensor(),
@@ -119,12 +109,42 @@ dataset = dset.ImageFolder(root=dataroot,
 
 # Create the dataloader
 
-# dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
-#                                          shuffle=True, num_workers=workers)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
+                                         shuffle=True, num_workers=workers)
 
-dataloader = prepare_dataloader(dataset, batch_size)
 
 fixed_noise = torch.randn(64, nz, 1, 1, device=device)
+if torch.cuda.device_count() > 1:
+    netGCadastralGreyscale128 = nn.DataParallel(netGCadastralGreyscale128)
+    netDCadastralgreyscale128 = nn.DataParallel(netDCadastralgreyscale128)
+    
+
+##################
+#                #
+# 3 - TRAIN      #
+#                #
+##################
+
+torch.manual_seed(23)
+np.random.seed(23)
+
+netDCadastralgreyscale128 = OptDis128(ngpu, 3)
+netGCadastralGreyscale128 = OptGenGreyscale128(ngpu=ngpu, num_conv_layers=4, drop_conv2=0.3)
+
+netGCadastralGreyscale128.to(device)
+netDCadastralgreyscale128.to(device)
+
+netDCadastralgreyscale128.apply(weights_init)
+netDCadastralgreyscale128.apply(weights_init)
+
+optimizerDCadastralGreyscale128 = optim.Adam(netDCadastralgreyscale128.parameters(), lr=lr, betas=(beta1, 0.999))
+optimizerGCadastralGreyscale128 = optim.Adam(netGCadastralGreyscale128.parameters(), lr=lr, betas=(beta1, 0.999))
+
+img_list_greyscale = trainModel(netG = netGCadastralGreyscale128, netD = netDCadastralgreyscale128, 
+                                device = device, dataloader = dataloader, optimizerG = optimizerGCadastralGreyscale128,
+                                optimizerD = optimizerDCadastralGreyscale128, fixed_noise=fixed_noise, folder='../../',  
+                                epochs=num_epochs, nz=nz, experiment = 'Greyscale128', AlternativeTraining = 0,
+                                logger=logger)
 
 ##################
 #                #
@@ -132,17 +152,17 @@ fixed_noise = torch.randn(64, nz, 1, 1, device=device)
 #                #
 ##################
 
-
-
-run_tag = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-
-experiment_id = mlflow.create_experiment(
-    f"../../reports/WGAN_Exp_Greyscale128_{run_tag}",
-    tags={"version": "v1", "priority": "P1"},
-)
-
-mlflow.set_experiment(experiment_id=experiment_id)
-study = optuna.create_study(study_name=f"WGAN_study_Greyscale128_{run_tag}", direction="minimize")
-
-func = lambda trial: objective(trial, nz, dataloader, n_epochs = num_epochs, folder = '../../', experiment='WGANGreyscale', AlternativeTraining = AltTrain, logger = logger)
-study.optimize(func, n_trials=trials)
+## 
+## 
+## run_tag = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+## 
+## experiment_id = mlflow.create_experiment(
+##     f"../../reports/WGAN_Exp_Greyscale128_{run_tag}",
+##     tags={"version": "v1", "priority": "P1"},
+## )
+## 
+## mlflow.set_experiment(experiment_id=experiment_id)
+## study = optuna.create_study(study_name=f"WGAN_study_Greyscale128_{run_tag}", direction="minimize")
+## 
+## func = lambda trial: objective(trial, nz, dataloader, n_epochs = num_epochs, folder = '../../', experiment='WGANGreyscale', AlternativeTraining = AltTrain, logger = logger)
+## study.optimize(func, n_trials=trials)
