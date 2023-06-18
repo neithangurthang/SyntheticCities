@@ -19,24 +19,25 @@ class OptGen(nn.Module):
         self.ngpu = ngpu
         self.drop_conv2 = drop_conv2
         self.num_filters = [3] 
-        self.num_filters.extend([2**(i+6) for i in range(num_conv_layers-1)])
+        self.num_filters.extend([2**(i+6) for i in range(num_conv_layers-2)])
+        self.num_filters.append(2**4)
         self.num_conv_layers = num_conv_layers
         self.strides = []
         self.paddings = []
         self.kernelSizes = []
         self.out_size = []
         if self.num_conv_layers == 3:
-            # solution 3: {'ins': [64, 22.0, 7.0], 'outs': [22.0, 7.0, 1.0], 'kernel_sizes': [3, 4, 7], 'paddings': [1, 0, 0], 'strides': [3, 3, 3]}
-            s3, c3 = conv_path_search(64, kernel_sizes = [3,4,5,7], 
-                                      strides = list(range(1,4)), paddings = [0,1], convs = 3)
+            # solution: {'ins': [64, 22.0, 8.0], 'outs': [22.0, 8.0, 8.0], 'kernel_sizes': [3, 3, 1], 'paddings': [1, 1, 0], 'strides': [3, 3, 1]}
+            s3, c3 = conv_path_search(ins = 64, kernel_sizes = [7, 5, 3,1], 
+                          strides = [5,3,1], paddings = [0,1], convs = 3, out = 8, verbose = False)
             solution = s3[-1]
             self.strides = solution['strides']
             self.paddings = solution['paddings']
             self.kernelSizes = solution['kernel_sizes']
         if self.num_conv_layers == 4:
-            # solution 2: {'ins': [64, 31.0, 14.0, 4.0], 'outs': [31.0, 14.0, 4.0, 1.0], 'kernel_sizes': [4, 5, 5, 4], 'paddings': [0, 0, 0, 0], 'strides': [2, 2, 3, 3]}
-            s4, c4 = conv_path_search(64, kernel_sizes = [3,4,5], 
-                                      strides = list(range(2,4)), paddings = [0], convs = 4)
+            # solution 2: {'ins': [64, 22.0, 8.0, 8.0], 'outs': [22.0, 8.0, 8.0, 8.0], 'kernel_sizes': [3, 3, 1, 1], 'paddings': [1, 1, 0, 0], 'strides': [3, 3, 1, 1]}
+            s4, c4 = conv_path_search(ins = 64, kernel_sizes = [7, 5, 3, 1], 
+                          strides = [5,3,1], paddings = [0,1], convs = 4, out = 8, verbose = False)
             solution = s4[-1] 
             self.strides = solution['strides']
             self.paddings = solution['paddings']
@@ -49,7 +50,7 @@ class OptGen(nn.Module):
         
         self.main = nn.Sequential(
             # input is Z, going into a convolution with dimensions c=nz, h=1, w=1
-            nn.ConvTranspose2d(in_channels=nz, #deconvolution!
+            nn.ConvTranspose2d(in_channels=self.num_filters[0], #deconvolution!
                                out_channels=self.num_filters[0], #ngf * 8, 
                                kernel_size=self.kernelSizes[0], 
                                stride=self.strides[0], 
@@ -81,5 +82,5 @@ class OptGen(nn.Module):
         ## print(f"Progression of the sizes in the deconvolution: {self.out_size}")
     
     def forward(self, x):
-        x = x.view(-1, 3, 6, 6)
+        x = x.view(-1, self.num_filters[0], 8, 8)
         return self.main(x)

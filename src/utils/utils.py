@@ -79,28 +79,6 @@ def conv_path_search(ins: int, kernel_sizes: list[int], strides: list[int], padd
         res = test_candidate(candidate = cand, out = out, verbose = verbose)
         if res:
             solutions.append(res)
-        ## # condition 1: returns dimension 1
-        ## if cand['outs'][-1] == out:
-        ##     # condition 2: kernel size larger or equal to stride
-        ##     isStrideSmallerKernel = True
-        ##     # condition 3: decreasing dimension of the kernel
-        ##     isKernelDecreasging = True
-        ##     # condition 4: decreasing stride
-        ##     isStrideDecreasing = True
-        ##     # condition 5: decreasing paddings
-        ##     isPaddingDecreasing = True
-        ##     for i in range(len(cand['strides'])):
-        ##         if cand['strides'][i] > cand['kernel_sizes'][i]:
-        ##             isStrideSmallerKernel = False
-        ##         if i > 0:
-        ##             if cand['kernel_sizes'][i] > cand['kernel_sizes'][i - 1]:
-        ##                 isKernelDecreasging = False
-        ##             if cand['strides'][i] > cand['strides'][i - 1]:
-        ##                 isStrideDecreasing = False
-        ##             if cand['paddings'][i] > cand['paddings'][i - 1]:
-        ##                 isPaddingDecreasing = False
-        ##     if isStrideSmallerKernel and isKernelDecreasging and isStrideDecreasing and isPaddingDecreasing:
-        ##         solutions.append(cand)
     return solutions, candidates
 
 def test_candidate(candidate: dict, out: int, verbose = False):
@@ -188,3 +166,18 @@ def batch_to_class(batch: torch.Tensor):
         res = torch.stack([
         img_to_class(x_i) for i, x_i in enumerate(torch.unbind(batch, dim=0), 0)], dim=0) 
         return res
+
+def postprocess_rgb(img: torch.tensor):
+    '''
+    post processes a rgb tensor and returns a tensor of the same shape
+    where only one channel has a 1 and the others a 0 -> the winner takes all
+    '''
+    img = img.permute(1, 2, 0) # x, y, channel
+    for x in range(img.size(0)):
+        for y in range(img.size(1)):
+            pixel = img[x][y].tolist()
+            i = pixel.index(max(pixel))
+            img[x][y][0:3] = 0
+            img[x][y][i] = 1
+    return(img)
+            
