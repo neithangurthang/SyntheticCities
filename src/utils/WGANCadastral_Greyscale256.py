@@ -123,8 +123,32 @@ fixed_noise = torch.randn(64, nz, 1, 1, device=device)
 torch.manual_seed(23)
 np.random.seed(23)
 
-netG = OptGenGreyscale256(ngpu=ngpu, num_conv_layers=4, drop_conv2=0.3)
-netD = OptDis256(ngpu, 3)
+path_trnD = '../../models/' + experiment + '_NetD_Training'
+path_endD = '../../models/' + experiment + '_NetD_Trained'
+path_trnG = '../../models/' + experiment + '_NetG_Training'
+path_endG = '../../models/' + experiment + '_NetG_Trained'
+
+if os.path.isfile(path_endD):
+    print(f'loading trained DNet from {path_endD}')
+    netD = torch.load(path_endD)
+elif os.path.isfile(path_trnD):
+    print(f'loading trained DNet from {path_trnD}')
+    netD = torch.load(path_trnD)
+else:
+    print(f'Create a new DNet, weights initialized')
+    netD = OptDis(ngpu=ngpu, num_conv_layers=3)
+    netD.apply(weights_init)
+
+if os.path.isfile(path_endG):
+    print(f'loading trained GNet from {path_endG}')
+    netG = torch.load(path_endG)
+elif os.path.isfile(path_trnG):
+    print(f'loading trained GNet from {path_trnG}')
+    netG = torch.load(path_trnG)
+else:
+    print(f'Create a new GNet, weights initialized')
+    netG = OptGen(ngpu=ngpu, num_conv_layers=4, drop_conv2=0.4)
+    netG.apply(weights_init)
 
 if torch.cuda.device_count() > 1:
     netG = nn.DataParallel(netG)
@@ -132,9 +156,6 @@ if torch.cuda.device_count() > 1:
 
 netG.to(device)
 netD.to(device)
-
-netG.apply(weights_init)
-netD.apply(weights_init)
 
 optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
 optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
