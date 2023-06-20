@@ -137,7 +137,7 @@ elif os.path.isfile(path_trnD):
     netD = torch.load(path_trnD)
 else:
     print(f'Create a new DNet, weights initialized')
-    netD = OptDis(ngpu=ngpu, num_conv_layers=3, in_channels=1)
+    netD = OptDis256(ngpu=ngpu, num_conv_layers=3, in_channels=1)
     netD.apply(weights_init)
 
 if os.path.isfile(path_endG):
