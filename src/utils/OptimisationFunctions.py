@@ -128,6 +128,8 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
         else:
             isDLearning = True
         for i, data in enumerate(dataloader, 0):
+            netG.train()
+            netD.train()
             xr = data[0].to(device)
             b_size = xr.size(0)
             z = torch.randn(b_size, nz, 1, 1).to(device)
@@ -159,6 +161,8 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
                 loss_G.backward()
                 optimizerG.step()
         if epoch % 10 == 0:
+            netG.eval()
+            netD.eval()
             print(f'Epoch: {epoch}/{epochs} | D Learn: {isDLearning} | D Loss: {np.round(loss_D.item(), 4)}' + 
                   f'| ErrDReal: {np.round(lossr.item(), 4)} | ErrDFake: {np.round(lossf.item(), 4)} ' + 
                   f'| GradPenality: {np.round(gp.item(), 4)} | G Loss: {np.round(loss_G.item(), 4)}')

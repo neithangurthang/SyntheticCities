@@ -14,7 +14,7 @@ class OptGenGreyscale256(nn.Module):
         super(OptGenGreyscale256, self).__init__()
         self.ngpu = ngpu
         self.drop_conv2 = drop_conv2
-        self.num_filters = [3] 
+        self.num_filters = [1] 
         self.num_filters.extend([2**(i+5) for i in range(num_conv_layers-2)])
         self.num_filters.append(2**4) # starting levels -> total 4 x 4 x 16 = 256 params -> tried 2**9 channels, the model is too slow
         self.num_conv_layers = num_conv_layers
@@ -25,7 +25,7 @@ class OptGenGreyscale256(nn.Module):
         if self.num_conv_layers == 3:
             # solution: {'ins': [256, 36.0, 12.0], 'outs': [36.0, 12.0, 4.0], 'kernel_sizes': [11, 3, 3], 'paddings': [0, 0, 0], 'strides': [7, 3, 3]}
             s3, c3 = conv_path_search(ins = 256, kernel_sizes = [11, 9, 7, 5, 3], 
-                          strides = [1,3,5, 7], paddings = [0,1], convs = 3, out = 4, verbose = False)
+                          strides = [1,3,5,7], paddings = [0,1], convs = 3, out = 4, verbose = False)
             solution = s3[-1]
             self.strides = solution['strides']
             self.paddings = solution['paddings']

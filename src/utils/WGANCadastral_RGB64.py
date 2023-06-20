@@ -100,7 +100,7 @@ if os.path.exists(dataroot + '/.ipynb_checkpoints'):
 dataset = dset.ImageFolder(root=dataroot,
                            transform=transforms.Compose([
                                transforms.RandomRotation(degrees=(0,180), expand = False),
-                               transforms.CenterCrop(image_size * 5),
+                               transforms.CenterCrop(image_size * 10),
                                transforms.Resize(image_size),
                                transforms.ToTensor(),
                                # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), -> 

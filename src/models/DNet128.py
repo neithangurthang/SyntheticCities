@@ -10,7 +10,7 @@ class OptDis128(nn.Module):
     high == real
     low == fake
     '''
-    def __init__(self, ngpu, num_conv_layers):
+    def __init__(self, ngpu, num_conv_layers, in_channels = 3):
         super(OptDis128, self).__init__()
         self.ngpu = ngpu
         self.num_filters = [2**(i+6) for i in range(num_conv_layers)]
@@ -19,7 +19,7 @@ class OptDis128(nn.Module):
         self.strides = []
         self.paddings = []
         self.kernelSizes = []
-        self.numberChannels = 3 # could be an input
+        self.numberChannels = in_channels # could be an input
         self.out_size = []
         if self.num_conv_layers == 3:
             # solution: {'ins': [128, 42.0, 14.0], 'outs': [42.0, 14.0, 4.0], 'kernel_sizes': [7, 5, 5], 'paddings': [1, 1, 0], 'strides': [3, 3, 3]}
@@ -58,8 +58,9 @@ class OptDis128(nn.Module):
             if i + 1 < num_conv_layers: 
                 self.main.add_module(str(3*i)+"): BatchNorm_" + str(i+1), nn.BatchNorm2d(self.num_filters[i]))
                 self.main.add_module(str(1+3*i)+"): LeakyReLU_" + str(i+1), nn.LeakyReLU(negative_slope=0.2, inplace=True))
-        self.main.add_module('Flatten', nn.Flatten())
-        self.main.add_module('Fully Connected', nn.Linear(int(self.num_filters[-1]*self.out_size[-1]*self.out_size[-1]), 1))
+        self.main.add_module('Fully Connected 1', nn.Linear(int(self.num_filters[-1]*self.out_size[-1]*self.out_size[-1]), 2**9))
+        self.main.add_module('ReLU', nn.ReLU(True))
+        self.main.add_module('Fully Connected 2', nn.Linear(2**9, 1))
         # NO ACTIVATION FUNCTION AT THE END: the idea is that the output domain for D is richer and can give a richer critict
         # avoiding local minima for G
         

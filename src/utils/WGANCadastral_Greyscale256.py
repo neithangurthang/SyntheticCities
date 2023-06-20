@@ -63,7 +63,7 @@ dataroot = "../../../cadastralExport" # Root directory for train dataset
 workers = 2 # Number of workers for dataloader
 batch_size = 64 # Batch size during training
 image_size = 256 # Spatial size of training images. All images will be resized to this
-nc = 3 # Number of channels in the training images. For color images this is 3
+nc = 1 # Number of channels in the training images. For color images this is 3
 nz = 2**4*4*4 # noise for one single image
 ngf = 64 # Size of feature maps in generator
 ndf = 64 # Size of feature maps in discriminator
@@ -105,6 +105,7 @@ dataset = dset.ImageFolder(root=dataroot,
                                transforms.Resize(image_size),
                                transforms.ToTensor(),
                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                               transforms.Grayscale(num_output_channels=1)
                            ]))
 
 # Create the dataloader
@@ -136,7 +137,7 @@ elif os.path.isfile(path_trnD):
     netD = torch.load(path_trnD)
 else:
     print(f'Create a new DNet, weights initialized')
-    netD = OptDis(ngpu=ngpu, num_conv_layers=3)
+    netD = OptDis(ngpu=ngpu, num_conv_layers=3, in_channels=1)
     netD.apply(weights_init)
 
 if os.path.isfile(path_endG):

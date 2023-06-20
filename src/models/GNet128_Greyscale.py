@@ -15,7 +15,7 @@ class OptGenGreyscale128(nn.Module):
         super(OptGenGreyscale128, self).__init__()
         self.ngpu = ngpu
         self.drop_conv2 = drop_conv2
-        self.num_filters = [3] 
+        self.num_filters = [1] 
         self.num_filters.extend([2**(i+5) for i in range(num_conv_layers-2)])
         self.num_filters.append(2**4) # starting levels -> total 4 x 4 x 16 = 256 params -> tried 2**9 channels, the model is too slow
         self.num_conv_layers = num_conv_layers

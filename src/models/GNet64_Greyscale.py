@@ -15,7 +15,7 @@ class OptGenGreyscale(nn.Module):
         super(OptGenGreyscale, self).__init__()
         self.ngpu = ngpu
         self.drop_conv2 = drop_conv2
-        self.num_filters = [3] 
+        self.num_filters = [1] 
         self.num_filters.extend([2**(i+6) for i in range(num_conv_layers-1)])
         self.num_conv_layers = num_conv_layers
         self.strides = []
