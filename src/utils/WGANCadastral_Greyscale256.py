@@ -148,7 +148,7 @@ elif os.path.isfile(path_trnG):
     netG = torch.load(path_trnG)
 else:
     print(f'Create a new GNet, weights initialized')
-    netG = OptGen(ngpu=ngpu, num_conv_layers=4, drop_conv2=0.4)
+    netG = OptGenGreyscale256(ngpu=ngpu, num_conv_layers=4, drop_conv2=0.4)
     netG.apply(weights_init)
 
 if torch.cuda.device_count() > 1:
