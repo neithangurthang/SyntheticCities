@@ -23,9 +23,9 @@ class OptDis(nn.Module):
         self.numberChannels = in_channels # could be an input
         self.out_size = []
         if self.num_conv_layers == 3:
-            # solution: [{'ins': [64, 20.0, 6.0], 'outs': [20.0, 6.0, 6.0], 'kernel_sizes': [7, 5, 1], 'paddings': [0, 0, 0], 'strides': [3, 3, 1]}]
-            s3, c3 = conv_path_search(64, kernel_sizes = [1, 3, 5, 7], 
-                          strides = [1,3,5], paddings = [0,1], convs = 3, out = 6)
+            # solution: {'ins': [64, 22.0, 8.0], 'outs': [22.0, 8.0, 8.0], 'kernel_sizes': [3, 3, 3], 'paddings': [1, 1, 1], 'strides': [3, 3, 1]}
+            s3, c3 = conv_path_search(ins = 64, kernel_sizes = [7,5,3],
+                              strides = [5,3,1], paddings = [0,1], convs = 3, out = 8, verbose = False)
             solution = s3[-1]
             self.strides = solution['strides']
             self.paddings = solution['paddings']
@@ -33,8 +33,8 @@ class OptDis(nn.Module):
             self.out_size = solution['outs']
         if self.num_conv_layers == 4:
             # solution: {'ins': [64, 22.0, 8.0, 8.0], 'outs': [22.0, 8.0, 8.0, 6.0], 'kernel_sizes': [3, 3, 3, 3], 'paddings': [1, 1, 1, 0], 'strides': [3, 3, 1, 1]}
-            s4, c4 = conv_path_search(64, kernel_sizes = [1, 3, 5], 
-                          strides = [1,3,5], paddings = [0,1], convs = 4, out = 6)
+            s4, c4 = conv_path_search(ins = 64, kernel_sizes = [7, 5, 3], 
+                              strides = [5,3,1], paddings = [0,1], convs = 4, out = 8, verbose = False)
             solution = s4[-1] 
             self.strides = solution['strides']
             self.paddings = solution['paddings']

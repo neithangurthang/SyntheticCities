@@ -205,10 +205,10 @@ def test(netG, device, dataloader, nz):
     return v
 
 def suggest_hyperparameters(trial):
-    lr = trial.suggest_float("lr", 0.00005, 0.0003) # 1e-4, 1e-3, log=True)
+    lr = trial.suggest_float("lr", 1e-4, 1e-3, log=True) # 0.00005, 0.0003) #
     dropoutG = trial.suggest_float("dropoutG", 0.0, 0.4, step=0.1)
-    convsG = trial.suggest_int("convsG", 3, 4, step=1)
-    convsD = trial.suggest_int("convsD", 3, 4, step=1)
+    convsG = trial.suggest_int("convsG", 3, 3, step=1)
+    convsD = trial.suggest_int("convsD", 3, 3, step=1)
     return lr, convsG, convsD, dropoutG
 
 def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: 'str', experiment: 'str' = 'WGANRGB', AlternativeTraining:int = 0, logger: logging.Logger = None):
@@ -224,11 +224,11 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
     '''
     # logging.basicConfig(filename=folder + experiment + '.log')
     best_val_loss = float('Inf')
-    nz_dim = nz
+    nz_dim = 2**4*8*8
     ngpu = torch.cuda.device_count() # Number of GPUs available. Use 0 for CPU mode.
     best_mse_val = None
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
-    fixed_noise = torch.randn(64, nz, 1, 1, device=device)
+    fixed_noise = torch.randn(64, nz_dim, 1, 1, device=device)
     beta1 = 0.5
     
     with mlflow.start_run():
@@ -246,7 +246,7 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
             netG = OptGen(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG).to(device)
             print(netG)
         elif experiment == 'WGANGreyscale':
-            netG = OptGenGreyscale(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG).to(device)
+            netG = OptGenGreyscale128(ngpu=ngpu, num_conv_layers=convsG, drop_conv2=dropoutG).to(device)
             print(netG)
         else:
             print('wrong type of expertiment, please choose between WGANRGB and WGANGreyscale')
@@ -280,8 +280,10 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
         if mse_errG <= best_mse_val:
             torch.save(netG, folder + "models/" + experiment + "Generator")
             torch.save(netD, folder + "models/" + experiment + "Discriminator")
+            best_lr, best_convsG, best_convsD, best_dropoutG = lr, convsG, convsD, dropoutG
             if logger:
                 logger.debug(f'BEST TRIAL: --> Learning Rate: {lr} Convs G: {convsG} | Convs D: {convsD} | Dropout G: {dropoutG} | MSE: {best_mse_val}')
+                print(f'BEST TRIAL: --> Learning Rate: {lr} Convs G: {convsG} | Convs D: {convsD} | Dropout G: {dropoutG} | MSE: {best_mse_val}')
             for i, img in enumerate(img_list):
                 if i < 10:
                     i = '0' + str(i)
@@ -289,7 +291,9 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
                 save_image(img, path)
         best_mse_val = min(best_mse_val, mse_errG)
         mlflow.log_metric("mse_errG", mse_errG)
-        
+    
+    logger.debug(f'###############################################')
+    logger.debug(f'FINAL RESULTS: --> Learning Rate: {best_lr} Convs G: {best_convsG} | Convs D: {best_convsD} | Dropout G: {best_dropoutG} | MSE: {best_mse_val}')
     return best_mse_val
 
 
