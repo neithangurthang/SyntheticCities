@@ -67,8 +67,8 @@ nc = 3 # Number of channels in the training images. For color images this is 3
 nz = 2**4*8*8 # noise for one single image
 ngf = 64 # Size of feature maps in generator
 ndf = 64 # Size of feature maps in discriminator
-num_epochs = 2000 # Number of training epochs
-trials = 20 # number of trials
+num_epochs = 2500 # Number of training epochs
+trials = 50 # number of trials
 AltTrain = 0 # epochs alternative training 
 lr = 0.0002 # Learning rate for optimizers
 beta1 = 0.5 # Beta1 hyperparam for Adam optimizers
@@ -206,7 +206,7 @@ mlflow.set_experiment(experiment_id=experiment_id)
 study = optuna.create_study(study_name=f"WGAN_RGB64_{run_tag}", direction="minimize")
 
 func = lambda trial: objective(trial, nz = nz, dataloader=dataloader, 
-                               n_epochs = 1250, folder = '../../', 
+                               n_epochs = num_epochs, folder = '../../', 
                                experiment='WGANRGB', AlternativeTraining = 0, 
                                logger = logger)
 study.optimize(func, n_trials=trials)
