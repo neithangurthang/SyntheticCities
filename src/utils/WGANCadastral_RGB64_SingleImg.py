@@ -206,3 +206,15 @@ func = lambda trial: objectiveOverSingleImage(trial, nz = nz, dataloader=dataloa
                                experiment='WGANRGB', AlternativeTraining = 0, 
                                logger = logger)
 study.optimize(func, n_trials=trials)
+
+trial_with_highest_accuracy = max(study.best_trials, key=lambda t: t.values[1])
+
+print(f"Trial with highest accuracy: ")
+print(f"\tnumber: {trial_with_highest_accuracy.number}")
+print(f"\tparams: {trial_with_highest_accuracy.params}")
+print(f"\tvalues: {trial_with_highest_accuracy.values}")
+
+logger.debug(f"Trial with highest accuracy: ")
+logger.debug(f"\tnumber: {trial_with_highest_accuracy.number}")
+logger.debug(f"\tparams: {trial_with_highest_accuracy.params}")
+logger.debug(f"\tvalues: {trial_with_highest_accuracy.values}")

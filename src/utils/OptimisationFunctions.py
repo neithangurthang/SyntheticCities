@@ -115,8 +115,8 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
     # logging.basicConfig(filename = folder + 'trainingGANs.log', level = logging.DEBUG) 
     img_list = []
     isDLearning = False
-    if logger:
-        logger.debug(f'Training GANS with NetG[conv. layers: {netG.num_conv_layers}, drop out: {netG.drop_conv2}] and NetD[conv. layers: {netD.num_conv_layers}]')
+    # if logger:
+        # logger.debug(f'Training GANS with NetG[conv. layers: {netG.num_conv_layers}, drop out: {netG.drop_conv2}] and NetD[conv. layers: {netD.num_conv_layers}]')
     for epoch in range(epochs):
         # switch between training G and D
         if isDLearning and AlternativeTraining > 0:
@@ -207,8 +207,8 @@ def test(netG, device, dataloader, nz):
 def suggest_hyperparameters(trial):
     lr = trial.suggest_float("lr", 1e-4, 1e-3, log=True) # 0.00005, 0.0003) #
     dropoutG = trial.suggest_float("dropoutG", 0.0, 0.4, step=0.1)
-    convsG = trial.suggest_int("convsG", 3, 3, step=1)
-    convsD = trial.suggest_int("convsD", 3, 3, step=1)
+    convsG = trial.suggest_int("convsG", 3, 4, step=1)
+    convsD = trial.suggest_int("convsD", 3, 4, step=1)
     return lr, convsG, convsD, dropoutG
 
 def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: 'str', experiment: 'str' = 'WGANRGB', AlternativeTraining:int = 0, logger: logging.Logger = None):
@@ -226,7 +226,7 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
     best_val_loss = float('Inf')
     nz_dim = 2**4*8*8
     ngpu = torch.cuda.device_count() # Number of GPUs available. Use 0 for CPU mode.
-    best_mse_val = None
+    best_mse_val, best_trial, best_lr, best_convsG, best_convsD, best_dropoutG = None, None, None, None, None, None
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
     fixed_noise = torch.randn(64, nz_dim, 1, 1, device=device)
     beta1 = 0.5
@@ -280,10 +280,11 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
         if mse_errG <= best_mse_val:
             torch.save(netG, folder + "models/" + experiment + "Generator")
             torch.save(netD, folder + "models/" + experiment + "Discriminator")
+            best_trial = trial.number
             best_lr, best_convsG, best_convsD, best_dropoutG = lr, convsG, convsD, dropoutG
             if logger:
-                logger.debug(f'BEST TRIAL: --> Learning Rate: {lr} Convs G: {convsG} | Convs D: {convsD} | Dropout G: {dropoutG} | MSE: {best_mse_val}')
-                print(f'BEST TRIAL: --> Learning Rate: {lr} Convs G: {convsG} | Convs D: {convsD} | Dropout G: {dropoutG} | MSE: {mse_errG} lower than {best_mse_val}')
+                logger.debug(f'Trial Number: {best_trial} | Learning Rate: {lr} Convs G: {convsG} | Convs D: {convsD} | Dropout G: {dropoutG} | MSE: {best_mse_val}')
+                print(f'Trial Number: {best_trial} | Learning Rate: {lr} Convs G: {convsG} | Convs D: {convsD} | Dropout G: {dropoutG} | MSE: {mse_errG}')
             for i, img in enumerate(img_list):
                 if i < 10:
                     i = '0' + str(i)
@@ -292,8 +293,8 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
         best_mse_val = min(best_mse_val, mse_errG)
         mlflow.log_metric("mse_errG", mse_errG)
     
-    logger.debug(f'###############################################')
-    logger.debug(f'FINAL RESULTS: --> Learning Rate: {best_lr} Convs G: {best_convsG} | Convs D: {best_convsD} | Dropout G: {best_dropoutG} | MSE: {best_mse_val}')
+    # logger.debug(f'###############################################')
+    # logger.debug(f'FINAL RESULTS: --> Learning Rate: {best_lr} Convs G: {best_convsG} | Convs D: {best_convsD} | Dropout G: {best_dropoutG} | MSE: {best_mse_val}')
     return best_mse_val
 
 
