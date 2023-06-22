@@ -50,7 +50,7 @@ from GNet64_RGB import OptGen
 from DNet64 import OptDis
 from utils import normalizeRGB
 from utils import weights_init
-from OptimisationFunctions import suggest_hyperparameters, trainModel, test, objective
+from OptimisationFunctions import suggest_hyperparameters, trainModel, test, objective, objectiveOverSingleImage, trainModelOverSingleImage
 from ddp_utils import ddp_setup, prepare_dataloader
 
 #######################
@@ -61,7 +61,7 @@ from ddp_utils import ddp_setup, prepare_dataloader
 
 dataroot = "../../../cadastralExportRGB" # Root directory for train dataset
 workers = 2 # Number of workers for dataloader
-batch_size = 64 # Batch size during training
+batch_size = 2 # Batch size during training
 image_size = 64 # Spatial size of training images. All images will be resized to this
 nc = 3 # Number of channels in the training images. For color images this is 3
 nz = 2**4*8*8 # noise for one single image
@@ -124,92 +124,85 @@ best_dropooutG = 0.3
 torch.manual_seed(23)
 np.random.seed(23)
 
-path_trnD = '../../models/' + experiment + '_NetD_Training'
-path_endD = '../../models/' + experiment + '_NetD_Trained'
-path_trnG = '../../models/' + experiment + '_NetG_Training'
-path_endG = '../../models/' + experiment + '_NetG_Trained'
+dataset = dset.ImageFolder(root=dataroot,
+                           transform=transforms.Compose([
+                               # transforms.RandomRotation(degrees=(0,180), expand = False),
+                               transforms.CenterCrop(image_size * 10),
+                               transforms.Resize(image_size),
+                               transforms.ToTensor()
+                           ]))
 
-if os.path.isfile(path_endD):
-    print(f'loading trained DNet from {path_endD}')
-    netD = torch.load(path_endD)
-elif os.path.isfile(path_trnD):
-    print(f'loading trained DNet from {path_trnD}')
-    netD = torch.load(path_trnD)
-else:
-    print(f'Create a new DNet, weights initialized')
-    netD = OptDis(ngpu=ngpu, num_conv_layers=3)
-    netD.apply(weights_init)
-
-if os.path.isfile(path_endG):
-    print(f'loading trained GNet from {path_endG}')
-    netG = torch.load(path_endG)
-elif os.path.isfile(path_trnG):
-    print(f'loading trained GNet from {path_trnG}')
-    netG = torch.load(path_trnG)
-else:
-    print(f'Create a new GNet, weights initialized')
-    netG = OptGen(ngpu=ngpu, num_conv_layers=3, drop_conv2=best_dropooutG)
-    netG.apply(weights_init)
-
-# If more devices are available
-if torch.cuda.device_count() > 1:
-    netG = nn.DataParallel(netG)
-    netD = nn.DataParallel(netD)
-
-netG.to(device)
-netD.to(device)
-
-optimizerG = optim.Adam(netG.parameters(), lr=best_lr, betas=(beta1, 0.999))
-optimizerD = optim.Adam(netD.parameters(), lr=best_lr, betas=(beta1, 0.999))
-
-img_list_greyscale = trainModel(netG = netG, netD = netD, 
-                                device = device, dataloader = dataloader, optimizerG = optimizerG,
-                                optimizerD = optimizerD, fixed_noise=fixed_noise, folder='../../',  
-                                epochs=num_epochs, nz=nz, experiment = experiment, AlternativeTraining = 0,
-                                logger=logger)
-
-torch.save(netG, '../../models/' + experiment + "_NetG_Trained")
-torch.save(netD, '../../models/' + experiment + "_NetD_Trained")
-
-##################
-#                #
-# 4 - Optimize   #
-#                #
-##################
-## 
-## # first delete the unnecessary folder 
-## dataroot = "../../../cadastralExportRGB1Img"
-## 
-## if os.path.exists(dataroot + '/.ipynb_checkpoints'):
-##     shutil.rmtree(dataroot + '/.ipynb_checkpoints')
-## 
-## # We can use an image folder dataset the way we have it setup.
-## dataset = dset.ImageFolder(root=dataroot,
-##                            transform=transforms.Compose([
-##                                # transforms.RandomRotation(degrees=(0,180), expand = False),
-##                                transforms.CenterCrop(image_size * 10),
-##                                transforms.Resize(image_size),
-##                                transforms.ToTensor()
-##                            ]))
-## 
-## # Create the dataloader
+# Create the dataloader
 ## 
 ## dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
 ##                                          shuffle=True, num_workers=workers)
 ## 
 ## 
-## run_tag = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+## netG = OptGen(ngpu=ngpu, num_conv_layers=3, drop_conv2=best_dropooutG).to(device)
+## netD = OptDis(ngpu, 3).to(device)
 ## 
-## experiment_id = mlflow.create_experiment(
-##     f"../../reports/WGAN_RGB64_{run_tag}",
-##     tags={"version": "v1", "priority": "P1"},
-## )
+## netG.apply(weights_init)
+## netD.apply(weights_init)
 ## 
-## mlflow.set_experiment(experiment_id=experiment_id)
-## study = optuna.create_study(study_name=f"WGAN_RGB64_{run_tag}", direction="minimize")
+## # If more devices are available
+## if torch.cuda.device_count() > 1:
+##     netG = nn.DataParallel(netG)
+##     netD = nn.DataParallel(netD)
 ## 
-## func = lambda trial: objective(trial, nz = nz, dataloader=dataloader, 
-##                                n_epochs = num_epochs, folder = '../../', 
-##                                experiment='WGANRGB', AlternativeTraining = 0, 
-##                                logger = logger)
-## study.optimize(func, n_trials=trials)
+## netG.to(device)
+## netD.to(device)
+## 
+## optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
+## optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
+## 
+## img_list_greyscale = trainModel(netG = netG, netD = netD, 
+##                                 device = device, dataloader = dataloader, optimizerG = optimizerG,
+##                                 optimizerD = optimizerD, fixed_noise=fixed_noise, folder='../../',  
+##                                 epochs=num_epochs, nz=nz, experiment = experiment, AlternativeTraining = 0,
+##                                 logger=logger)
+## 
+## torch.save(netG, '../../models/' + experiment + "_NetG_Trained")
+## torch.save(netD, '../../models/' + experiment + "_NetD_Trained")
+## 
+##################
+#                #
+# 4 - Optimize   #
+#                #
+##################
+
+# first delete the unnecessary folder 
+dataroot = "../../../cadastralExportRGB1Img"
+
+if os.path.exists(dataroot + '/.ipynb_checkpoints'):
+    shutil.rmtree(dataroot + '/.ipynb_checkpoints')
+
+# We can use an image folder dataset the way we have it setup.
+dataset = dset.ImageFolder(root=dataroot,
+                           transform=transforms.Compose([
+                               # transforms.RandomRotation(degrees=(0,180), expand = False),
+                               transforms.CenterCrop(image_size * 10),
+                               transforms.Resize(image_size),
+                               transforms.ToTensor()
+                           ]))
+
+# Create the dataloader
+
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
+                                         shuffle=True, num_workers=workers)
+
+
+run_tag = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+experiment_id = mlflow.create_experiment(
+    f"../../reports/WGAN_RGB64_{run_tag}",
+    tags={"version": "v1", "priority": "P1"},
+)
+
+mlflow.set_experiment(experiment_id=experiment_id)
+study = optuna.create_study(study_name=f"WGAN_RGB64_{run_tag}", direction="minimize")
+
+func = lambda trial: objectiveOverSingleImage(trial, nz = nz, dataloader=dataloader, 
+                               n_epochs = num_epochs, folder = '../../', 
+                               experiment='WGANRGB', AlternativeTraining = 0, 
+                               logger = logger)
+study.optimize(func, n_trials=trials)
