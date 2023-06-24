@@ -160,7 +160,7 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
             if not isDLearning or AlternativeTraining == 0:
                 loss_G.backward()
                 optimizerG.step()
-        if epoch % 10 == 0:
+        if epoch % 100 == 0:
             netG.eval()
             netD.eval()
             print(f'Epoch: {epoch}/{epochs} | D Learn: {isDLearning} | D Loss: {np.round(loss_D.item(), 4)}' + 
