@@ -57,7 +57,7 @@ class OptGen(nn.Module):
                                padding=self.paddings[0], 
                                bias=False), 
             nn.BatchNorm2d(self.num_filters[0]),
-            nn.ReLU(True)
+            nn.LeakyReLU(negative_slope=0.2, inplace=True)
         )
         self.out_size.append([self.num_filters[0], (1-1)*self.strides[0]+self.kernelSizes[0]-2*self.paddings[0]])
         self.num_modules = 3
@@ -75,7 +75,7 @@ class OptGen(nn.Module):
                     self.main.add_module(str(4*i)+"): DropOut_" + str(i+1), nn.Dropout2d(p=self.drop_conv2))
                     self.num_modules += 1
                 self.main.add_module(str(1+4*i)+"): BatchNorm_" + str(i+1), nn.BatchNorm2d(self.num_filters[i]))
-                self.main.add_module(str(2+4*i)+"): ReLU_" + str(i+1), nn.ReLU(True))
+                self.main.add_module(str(2+4*i)+"): LeakyReLU_" + str(i+1), nn.LeakyReLU(negative_slope=0.2, inplace=True))
                 self.num_modules += 2
         # softmax as the probability that a pixels belongs to a certain class
         self.main.add_module(str(self.num_modules), nn.Softmax(dim=1)) # not nn.Tanh() # not sigmoid

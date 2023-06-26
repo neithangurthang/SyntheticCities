@@ -35,7 +35,7 @@ class OptDis(nn.Module):
             # solution: {'ins': [64, 22.0, 8.0, 8.0], 'outs': [22.0, 8.0, 8.0, 6.0], 'kernel_sizes': [3, 3, 3, 3], 'paddings': [1, 1, 1, 0], 'strides': [3, 3, 1, 1]}
             s4, c4 = conv_path_search(ins = 64, kernel_sizes = [7, 5, 3], 
                               strides = [5,3,1], paddings = [0,1], convs = 4, out = 8, verbose = False)
-            solution = s4[-1] 
+            solution = s4[-1]
             self.strides = solution['strides']
             self.paddings = solution['paddings']
             self.kernelSizes = solution['kernel_sizes']
@@ -63,14 +63,16 @@ class OptDis(nn.Module):
         
         self.main.add_module('Flatten', nn.Flatten())
         self.main.add_module('Fully Connected 1', nn.Linear(int(self.num_filters[-1]*self.out_size[-1]*self.out_size[-1]), 2**9))
-        self.main.add_module('ReLU', nn.ReLU(True))
-        self.main.add_module('Fully Connected 2', nn.Linear(2**9, 1))
+        self.main.add_module('LeakyReLU_1', nn.LeakyReLU(negative_slope=0.01, inplace=True))
+        self.main.add_module('Fully Connected 2', nn.Linear(2**9, 2**5))
+        self.main.add_module('LeakyReLU_2', nn.LeakyReLU(negative_slope=0.01, inplace=True))
+        self.main.add_module('Fully Connected 3', nn.Linear(2**5, 1))
                              
         # NO ACTIVATION FUNCTION AT THE END: the idea is that the output domain for D is richer and can give a richer critict
         # avoiding local minima for G
         
         # self.main.add_module(str(3*i)+"): Sigmoid", nn.Sigmoid()) 
-        # self.main.add_module(str(3*i)+"): Tanh", nn.tanh()) #  or nothing
+        self.main.add_module("Tanh", nn.Tanhshrink()) #  or nothing
     
     def forward(self, input):
         # import code 

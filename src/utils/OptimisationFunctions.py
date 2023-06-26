@@ -112,6 +112,9 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
         of netG and netD by training them using the Wasserstein distance and the gradient penalty
     
     '''
+    TRAIN_G_EVERY = 2  # training generator only every 3d epoch comparing to discriminator
+    # Creating a pool of noises
+    # z_pool = [torch.randn(1, nz, 1, 1).to(device) for _ in range(1000)]  # FIXME: need to make it dependent on size of real data
     # logging.basicConfig(filename = folder + 'trainingGANs.log', level = logging.DEBUG) 
     img_list = []
     isDLearning = False
@@ -127,12 +130,14 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
                 isDLearning = True
         else:
             isDLearning = True
+        # print(AlternativeTraining, isDLearning)
+        netG.train()
+        netD.train()
         for i, data in enumerate(dataloader, 0):
-            netG.train()
-            netD.train()
             xr = data[0].to(device)
             b_size = xr.size(0)
             z = torch.randn(b_size, nz, 1, 1).to(device)
+            # z = torch.cat(random.sample(z_pool, b_size))
             # 0 Set all gradients for D to 0
             netD.zero_grad()
             # 1.1 train on real data
@@ -145,12 +150,15 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
             # minimize predf
             lossf = predf.mean()
             # 1.3 gradient penalty
-            gp = 0.2 * gradient_penalty(netD, xr, xf) # lambda gradient penalty = 0.2
+            gp = torch.tensor([0])
+            gp = 1e+1 * gradient_penalty(netD, xr, xf) # lambda gradient penalty = 0.2
             # aggregate all
             loss_D = lossr + lossf + gp 
             if isDLearning or AlternativeTraining == 0 or epoch == 0:
                 loss_D.backward()
                 optimizerD.step()
+                # for p in netD.parameters():
+                #     p.data.clamp_(-0.01, 0.01)
             # 2. train G
             netG.zero_grad()
             xf = netG(z)
@@ -158,6 +166,7 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
             # maximize predf.mean()
             loss_G = -predf.mean() # to be minimized in the optimization, therefore -1 is the goal
             if not isDLearning or AlternativeTraining == 0:
+            # if i % TRAIN_G_EVERY == 0:
                 loss_G.backward()
                 optimizerG.step()
         if epoch % 100 == 0:
