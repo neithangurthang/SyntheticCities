@@ -65,10 +65,12 @@ workers = 4 # Number of workers for dataloader
 batch_size = 20 # Batch size during training
 image_size = 64 # Spatial size of training images. All images will be resized to this
 nc = 3 # Number of channels in the training images. For color images this is 3
-nz = 2**4*8*8 # noise for one single image
+noise_filters = 1 # noise filters
+noise_pixels = 8 # noise pixels
+nz = noise_filters*noise_pixels*noise_pixels # noise for one single image
 ngf = 64 # Size of feature maps in generator
 ndf = 64 # Size of feature maps in discriminator
-num_epochs = 20_000 # Number of training epochs
+num_epochs = 20 # Number of training epochs
 trials = 20 # number of trials
 AltTrain = 0 # epochs alternative training 
 lr = 0.0002 # Learning rate for optimizers
@@ -78,6 +80,7 @@ ngpu = torch.cuda.device_count() # Number of GPUs available. Use 0 for CPU mode.
 # Decide which device we want to run on
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 experiment = 'RGB64'
+new_experiment = True
 
 # logging
 logger = logging.getLogger(__name__)
@@ -132,27 +135,29 @@ path_endD = '../../models/' + experiment + '_NetD_Trained'
 path_trnG = '../../models/' + experiment + '_NetG_Training'
 path_endG = '../../models/' + experiment + '_NetG_Trained'
 
-# if os.path.isfile(path_endD):
-#     print(f'loading trained DNet from {path_endD}')
-#     netD = torch.load(path_endD)
-# elif os.path.isfile(path_trnD):
-#     print(f'loading trained DNet from {path_trnD}')
-#     netD = torch.load(path_trnD)
-# else:
-print(f'Create a new DNet, weights initialized')
-netD = OptDis(ngpu=ngpu, num_conv_layers=opt_params['convsD'])
-netD.apply(weights_init)
-
-# if os.path.isfile(path_endG):
-#     print(f'loading trained GNet from {path_endG}')
-#     netG = torch.load(path_endG)
-# elif os.path.isfile(path_trnG):
-#     print(f'loading trained GNet from {path_trnG}')
-#     netG = torch.load(path_trnG)
-# else:
-print(f'Create a new GNet, weights initialized')
-netG = OptGen(ngpu=ngpu, num_conv_layers=opt_params['convsG'], drop_conv2=opt_params['dropoutG'])
-netG.apply(weights_init)
+if new_experiment or not os.path.isfile(path_endD) or not os.path.isfile(path_trnD):
+    print(f'Create a new DNet, weights initialized')
+    netD = OptDis(ngpu=ngpu, num_conv_layers=opt_params['convsD'])
+    netD.apply(weights_init)
+else:
+    if os.path.isfile(path_endD):
+        print(f'loading trained DNet from {path_endD}')
+        netD = torch.load(path_endD)
+    elif os.path.isfile(path_trnD):
+        print(f'loading trained DNet from {path_trnD}')
+        netD = torch.load(path_trnD)
+if new_experiment or not os.path.isfile(path_endG) or not os.path.isfile(path_trnG):
+    print(f'Create a new GNet, weights initialized')
+    netG = OptGen(ngpu=ngpu, num_conv_layers=opt_params['convsG'], drop_conv2=opt_params['dropoutG'], 
+                 noise_filters = noise_filters, noise_pixels = noise_pixels)
+    netG.apply(weights_init)
+else:
+    if os.path.isfile(path_endG):
+        print(f'loading trained GNet from {path_endG}')
+        netG = torch.load(path_endG)
+    elif os.path.isfile(path_trnG):
+        print(f'loading trained GNet from {path_trnG}')
+        netG = torch.load(path_trnG)
 
 # If more devices are available
 if torch.cuda.device_count() > 1:
@@ -162,8 +167,8 @@ if torch.cuda.device_count() > 1:
 netG.to(device)
 netD.to(device)
 
-optimizerG = optim.RMSprop(netG.parameters(), lr=best_lr)
-optimizerD = optim.RMSprop(netD.parameters(), lr=best_lr)
+optimizerG = optim.Adam(netG.parameters(), lr=best_lr) # betas = 0.9, 0.99 by default -> ok
+optimizerD = optim.Adam(netD.parameters(), lr=best_lr) # betas = 0.9, 0.99 by default -> ok
 
 img_list_greyscale = trainModel(netG=netG, netD=netD, 
                                 device = device, dataloader = dataloader, optimizerG = optimizerG,

@@ -135,6 +135,7 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
         netD.train()
         for i, data in enumerate(dataloader, 0):
             xr = data[0].to(device)
+            # print(f'size of xr: {xr.size()}')
             b_size = xr.size(0)
             z = torch.randn(b_size, nz, 1, 1).to(device)
             # z = torch.cat(random.sample(z_pool, b_size))
@@ -145,7 +146,11 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
             # maximize predr, therefore minus sign
             lossr = -predr.mean() # to be minimized in the optimization, therefore -inf is the goal
             # 1.2 train on fake data
-            xf = netG(z).detach()  # without .detach() gradient would be passed down
+            xf = netG(z).detach() # .detach() not needed here
+            # Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+            # RuntimeError: Trying to backward through the graph a second time (or directly access saved tensors after they have already been freed). Saved 
+            # intermediate values of the graph are freed when you call .backward() or autograd.grad(). Specify retain_graph=True if you need to backward through 
+            # the graph a second time or if you need to access saved tensors after calling backward.
             predf = netD(xf)
             # minimize predf
             lossf = predf.mean()
@@ -157,22 +162,22 @@ def trainModel(netG, netD, device: torch.device, dataloader: torch.utils.data.da
             if isDLearning or AlternativeTraining == 0 or epoch == 0:
                 loss_D.backward()
                 optimizerD.step()
-                # for p in netD.parameters():
-                #     p.data.clamp_(-0.01, 0.01)
+                for p in netD.parameters():
+                    p.data.clamp_(-0.01, 0.01)
             # 2. train G
             netG.zero_grad()
             xf = netG(z)
-            predf = netD(xf)
+            predf = netD(xf) # predf with new params, since netD has already been trained
             # maximize predf.mean()
             loss_G = -predf.mean() # to be minimized in the optimization, therefore -1 is the goal
             if not isDLearning or AlternativeTraining == 0:
             # if i % TRAIN_G_EVERY == 0:
                 loss_G.backward()
                 optimizerG.step()
-        if epoch % 100 == 0:
+        if epoch % 1 == 0:
             netG.eval()
             netD.eval()
-            print(f'Epoch: {epoch}/{epochs} | D Learn: {isDLearning} | D Loss: {np.round(loss_D.item(), 4)}' + 
+            print(f'Epoch: {epoch}/{epochs} | D Learn: {isDLearning} | D Loss: {np.round(loss_D.item(), 4)} ' + 
                   f'| ErrDReal: {np.round(lossr.item(), 4)} | ErrDFake: {np.round(lossf.item(), 4)} ' + 
                   f'| GradPenality: {np.round(gp.item(), 4)} | G Loss: {np.round(loss_G.item(), 4)}')
             # SAVING MODEL
@@ -233,11 +238,11 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
     '''
     # logging.basicConfig(filename=folder + experiment + '.log')
     best_val_loss = float('Inf')
-    nz_dim = 2**4*8*8
+    # nz_dim = 2**4*8*8
     ngpu = torch.cuda.device_count() # Number of GPUs available. Use 0 for CPU mode.
     best_mse_val, best_trial, best_lr, best_convsG, best_convsD, best_dropoutG = None, None, None, None, None, None
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
-    fixed_noise = torch.randn(64, nz_dim, 1, 1, device=device)
+    fixed_noise = torch.randn(64, nz, 1, 1, device=device)
     beta1 = 0.5
     
     with mlflow.start_run():
@@ -282,7 +287,7 @@ def objective(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder: '
                               optimizerG = optimizerG, optimizerD = optimizerD, fixed_noise = fixed_noise, folder = folder, 
                               epochs = n_epochs, nz = nz, experiment = experiment, AlternativeTraining = AlternativeTraining, 
                               logger = logger)
-        mse_errG = test(netG, device, dataloader, nz_dim)
+        mse_errG = test(netG, device, dataloader, nz)
         
         if best_mse_val is None:
             best_mse_val = mse_errG
@@ -320,7 +325,7 @@ def objective128(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder
     '''
     # logging.basicConfig(filename=folder + experiment + '.log')
     best_val_loss = float('Inf')
-    nz_dim = nz
+    # nz_dim = nz
     ngpu = torch.cuda.device_count() # Number of GPUs available. Use 0 for CPU mode.
     best_mse_val = None
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
@@ -369,7 +374,7 @@ def objective128(trial: optuna.Trial, nz: int, dataloader, n_epochs: int, folder
                               optimizerG = optimizerG, optimizerD = optimizerD, fixed_noise = fixed_noise, folder = folder, 
                               epochs = n_epochs, nz = nz, experiment = experiment, AlternativeTraining = AlternativeTraining, 
                               logger = logger)
-        mse_errG = test(netG, device, dataloader, nz_dim)
+        mse_errG = test(netG, device, dataloader, nz) # nz_dim)
         
         if best_mse_val is None:
             best_mse_val = mse_errG
@@ -506,11 +511,11 @@ def objectiveOverSingleImage(trial: optuna.Trial, nz: int, dataloader, n_epochs:
     '''
     # logging.basicConfig(filename=folder + experiment + '.log')
     best_val_loss = float('Inf')
-    nz_dim = 2**4*8*8
+    # nz_dim = 2**4*8*8
     ngpu = torch.cuda.device_count() # Number of GPUs available. Use 0 for CPU mode.
     best_mse_val = None
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
-    fixed_noise = torch.randn(2, nz_dim, 1, 1, device=device)
+    fixed_noise = torch.randn(2, nz, 1, 1, device=device)
     beta1 = 0.5
     
     with mlflow.start_run():
@@ -555,7 +560,7 @@ def objectiveOverSingleImage(trial: optuna.Trial, nz: int, dataloader, n_epochs:
                               optimizerG = optimizerG, optimizerD = optimizerD, fixed_noise = fixed_noise, folder = folder, 
                               epochs = n_epochs, nz = nz, experiment = experiment, AlternativeTraining = AlternativeTraining, 
                               logger = logger)
-        mse_errG = test(netG, device, dataloader, nz_dim)
+        mse_errG = test(netG, device, dataloader, nz) # nz_dim)
         
         if best_mse_val is None:
             best_mse_val = mse_errG
