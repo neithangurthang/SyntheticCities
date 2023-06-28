@@ -80,7 +80,7 @@ ngpu = torch.cuda.device_count() # Number of GPUs available. Use 0 for CPU mode.
 # Decide which device we want to run on
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 experiment = 'RGB64'
-new_experiment = True
+new_experiment = False
 
 # logging
 logger = logging.getLogger(__name__)
