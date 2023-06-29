@@ -135,7 +135,7 @@ path_endD = '../../models/' + experiment + '_NetD_Trained'
 path_trnG = '../../models/' + experiment + '_NetG_Training'
 path_endG = '../../models/' + experiment + '_NetG_Trained'
 
-if new_experiment or not os.path.isfile(path_endD) or not os.path.isfile(path_trnD):
+if new_experiment or not (os.path.isfile(path_endD) or os.path.isfile(path_trnD)):
     print(f'Create a new DNet, weights initialized')
     netD = OptDis(ngpu=ngpu, num_conv_layers=opt_params['convsD'])
     netD.apply(weights_init)
@@ -146,7 +146,7 @@ else:
     elif os.path.isfile(path_trnD):
         print(f'loading trained DNet from {path_trnD}')
         netD = torch.load(path_trnD)
-if new_experiment or not os.path.isfile(path_endG) or not os.path.isfile(path_trnG):
+if new_experiment or not (os.path.isfile(path_endG) or os.path.isfile(path_trnG)):
     print(f'Create a new GNet, weights initialized')
     netG = OptGen(ngpu=ngpu, num_conv_layers=opt_params['convsG'], drop_conv2=opt_params['dropoutG'], 
                  noise_filters = noise_filters, noise_pixels = noise_pixels)

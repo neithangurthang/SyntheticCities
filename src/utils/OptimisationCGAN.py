@@ -121,10 +121,10 @@ def trainCGANModel(netG, netD, device: torch.device, dataloader: torch.utils.dat
             # minimize predf
             lossf = predf.mean()
             # 1.3 gradient penalty
-            gp = torch.tensor([0])
-            gp = 1e+1 * gradient_penalty(netD, xr, xf) # lambda gradient penalty = 0.2
+            # gp = torch.tensor([0])
+            # gp = 1e+1 * gradient_penalty(netD, xr, xf) # lambda gradient penalty = 0.2
             # aggregate all
-            loss_D = lossr + lossf + gp 
+            loss_D = lossr + lossf # + gp 
             if isDLearning or AlternativeTraining == 0 or epoch == 0:
                 loss_D.backward()
                 optimizerD.step()
@@ -145,7 +145,7 @@ def trainCGANModel(netG, netD, device: torch.device, dataloader: torch.utils.dat
             netD.eval()
             print(f'Epoch: {epoch}/{epochs} | D Learn: {isDLearning} | D Loss: {np.round(loss_D.item(), 4)} ' + 
                   f'| ErrDReal: {np.round(lossr.item(), 4)} | ErrDFake: {np.round(lossf.item(), 4)} ' + 
-                  f'| GradPenality: {np.round(gp.item(), 4)} | G Loss: {np.round(loss_G.item(), 4)}')
+                  f'| G Loss: {np.round(loss_G.item(), 4)}') # | GradPenality: {np.round(gp.item(), 4)} 
             # SAVING MODEL
             torch.save(netG, folder + "models/" + experiment + "_NetG_Training")
             torch.save(netD, folder + "models/" + experiment + "_NetD_Training")
