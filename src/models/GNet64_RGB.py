@@ -19,7 +19,7 @@ class OptGen(nn.Module):
         self.ngpu = ngpu
         self.drop_conv2 = drop_conv2
         self.num_filters = [3] 
-        self.num_filters.extend([2**(i+4) for i in range(num_conv_layers-2)])
+        self.num_filters.extend([2**(i+4) for i in range(num_conv_layers-1)])
         self.num_filters.append(noise_filters)
         self.num_conv_layers = num_conv_layers
         self.strides = []
@@ -57,7 +57,7 @@ class OptGen(nn.Module):
         self.main = nn.Sequential(
             # input is Z, going into a convolution with dimensions c=nz, h=1, w=1
             nn.ConvTranspose2d(in_channels=self.num_filters[0], #deconvolution!
-                               out_channels=self.num_filters[0], #ngf * 8, 
+                               out_channels=self.num_filters[1], #ngf * 8, 
                                kernel_size=self.kernelSizes[0], 
                                stride=self.strides[0], 
                                padding=self.paddings[0], 
@@ -69,8 +69,8 @@ class OptGen(nn.Module):
         self.num_modules = 3
         for i in range(1, num_conv_layers):
             if i + 1 < num_conv_layers:
-                self.main.add_module(str(4*i-1)+"): TransConv_"+str(i+1), nn.ConvTranspose2d(in_channels=self.num_filters[i-1],
-                                                                out_channels=self.num_filters[i],
+                self.main.add_module(str(4*i-1)+"): TransConv_"+str(i+1), nn.ConvTranspose2d(in_channels=self.num_filters[i],
+                                                                out_channels=self.num_filters[i+1],
                                                                 kernel_size=self.kernelSizes[i],
                                                                 stride=self.strides[i],
                                                                 padding=self.paddings[i],
