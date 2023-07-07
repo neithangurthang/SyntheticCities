@@ -15,3 +15,7 @@ __pycache__/
 
 # Cadastral images
 /data/cadastral
+
+# Folders with models dumped and reports
+/reports
+/models
