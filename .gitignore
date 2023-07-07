@@ -14,7 +14,7 @@ __pycache__/
 .ipynb_checkpoints/
 
 # Cadastral images
-/data/cadastral
+/data/cadastralExportRGB
 
 # Folders with models dumped and reports
 /reports

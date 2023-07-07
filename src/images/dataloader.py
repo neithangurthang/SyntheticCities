@@ -1,6 +1,7 @@
 from os import listdir
 from os.path import isfile, join
 import torch
+import torch.nn.functional as F
 from typing import Optional
 from PIL import Image
 from torchvision import transforms
@@ -24,18 +25,22 @@ class CadastralImage:
         """
         Loads and transforms the image into 3-D channel representation (with resize if necessary)
         """
-        self.image = Image.open(self.src).convert('L')
-        self.vec = transforms.functional.to_tensor(self.image).to(device) # "grayscale" convertion from RGB
+        self.image = Image.open(self.src).convert('RGB')  # use 'L' convertion when grayscale is required
+        self.vec = transforms.functional.to_tensor(self.image).to(device)
         # case image is too big we'll resize it according to the resolution provided
         if resolution and resolution != self.image.size:
             if resolution[0] > self.image.size[0] or resolution[1] > self.image.size[1]:
                 raise WrongResolutionException(f"Cannot turn image of size {self.image.size} into {resolution}")
             else:
-                resizer = transforms.Resize(resolution)
                 croper = transforms.CenterCrop(resolution[0] * mult)
                 self.vec = croper.forward(self.vec)
+                resizer = transforms.Resize(resolution[0])
                 self.vec = resizer.forward(self.vec)
-        # leaving only first dimension after converting
+        
+        self.vec = F.one_hot(torch.argmax(self.vec, dim=0, keepdim=True)[0]).permute(2, 0, 1).float()
+            
+    def _grayscale_to_rgb(self):
+        # leaving only first dimension after converting if grayscale
         self.vec = self.vec.reshape(self.vec.shape[1], self.vec.shape[2])
         # leaving only 0.5 value in case of non-binary element
         # self.vec = torch.where((self.vec == 0) + (self.vec == 1), self.vec, 0.5)
@@ -67,7 +72,7 @@ def load_folder(src: str, resolution: Optional[tuple] = None, mult: Optional[int
     """
     dataset = []
     onlyfiles = [f for f in listdir(src) if isfile(join(src, f))]
-    for file in onlyfiles:
+    for file in onlyfiles[:1000]:
         filesrc = src + file
         imholder = CadastralImage(filesrc, resolution=resolution, mult=mult, device=device)
         dataset.append((imholder.vec, 1))  # because the label of real image is True (i.e. 1)
