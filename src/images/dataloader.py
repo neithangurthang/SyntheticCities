@@ -72,7 +72,7 @@ def load_folder(src: str, resolution: Optional[tuple] = None, mult: Optional[int
     """
     dataset = []
     onlyfiles = [f for f in listdir(src) if isfile(join(src, f))]
-    for file in onlyfiles[:1000]:
+    for file in onlyfiles:
         filesrc = src + file
         imholder = CadastralImage(filesrc, resolution=resolution, mult=mult, device=device)
         dataset.append((imholder.vec, 1))  # because the label of real image is True (i.e. 1)
