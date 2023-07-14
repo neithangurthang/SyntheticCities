@@ -1,12 +1,10 @@
 import os
 import sys
-# if os.getcwd().split('/')[-1] == 'scripts':
-#     os.chdir('../')
 sys.path.append('../')
-# print(os.getcwd())
 
 from src.images.dataloader import CadastralImage, load_folder
 from src.models.DCGAN import Generator, Discriminator
+from src.utils.regularizers import gradient_penalty
 import shutil
 import argparse
 import random
@@ -72,6 +70,8 @@ device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else 
 
 # Regularization for generator not being sure which color to put in a pixel
 pixel_reg_rate = 1
+# Gradient penalty rate
+gp_rate = 1e+1
 
 # We can use an image folder dataset the way we have it setup
 if os.path.exists(dataroot + '/.ipynb_checkpoints'):
@@ -115,16 +115,9 @@ if (device.type == 'cuda') and (ngpu > 1):
 # like this: ``to mean=0, stdev=0.2``.
 netD.apply(weights_init)
 
-# Initialize the ``BCELoss`` function
-criterion = nn.BCELoss()
-
 # Create batch of latent vectors that we will use to visualize
 #  the progression of the generator
 fixed_noise = torch.randn(64, nz, 1, 1, device=device)
-
-# Establish convention for real and fake labels during training
-real_label = 1.
-fake_label = 0.
 
 # Setup Adam optimizers for both G and D
 optimizerD = optim.Adam(netD.parameters(), lr=lr)
@@ -145,65 +138,52 @@ for epoch in range(num_epochs):
     for i, data in enumerate(dataloader):
         
         ############################
-        # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
+        # (1) Update D network: maximize D(x) - D(G(z))
         ###########################
         ## Train with all-real batch
         netD.zero_grad()
         # Format batch
         real_cpu = data[0].to(device)
         b_size = real_cpu.size(0)
-        label = torch.full((b_size,), real_label, dtype=torch.float, device=device)
-        # Forward pass real batch through D
+        # Forward pass real batch through D and make gradient update
         output = netD(real_cpu).view(-1)
-        # Calculate loss on all-real batch
-        # errD_real = criterion(output, label)
         errD_real = -output.mean()
-        # Calculate gradients for D in backward pass
         errD_real.backward()
-        D_x = output.mean().item()
 
         ## Train with all-fake batch
         # Generate batch of latent vectors
         noise = torch.randn(b_size, nz, 1, 1, device=device)
         # Generate fake image batch with G
         fake = netG(noise)
-        label.fill_(fake_label)
         # Classify all fake batch with D
         output = netD(fake.detach()).view(-1)
         # Calculate D's loss on the all-fake batch
-        # errD_fake = criterion(output, label)
         errD_fake = output.mean()
         # Calculate the gradients for this batch, accumulated (summed) with previous gradients
         errD_fake.backward()
-        D_G_z1 = output.mean().item()
         # Compute error of D as sum over the fake and the real batches
-        errD = errD_real + errD_fake
+        gp = gradient_penalty(netD, real_cpu, fake, device) # lambda gradient penalty = 0.2
+        errD = errD_real + errD_fake + gp_rate * gp
         # Update D
         optimizerD.step()
-        for p in netD.parameters():
-            p.data.clamp_(-0.05, 0.05)
+        # Introduce discriminator gradient clipping so that it doesn't learn too fast
+        # for p in netD.parameters():
+        #     p.data.clamp_(-0.05, 0.05)
 
         ############################
-        # (2) Update G network: maximize log(D(G(z)))
+        # (2) Update G network: maximize D(G(z))
         ###########################
         netG.zero_grad()
-        label.fill_(real_label)  # fake labels are real for generator cost
         # Since we just updated D, perform another forward pass of all-fake batch through D
         output = netD(fake).view(-1)
-        # Calculate G's loss based on this output
-        # errG = criterion(output, label)
-        # relu = nn.ReLU()
-        pixel_reg = torch.mean(torch.sum(torch.log(fake + 1e-5), axis=1))
-        errG = -output.mean() # + pixel_reg_rate * pixel_reg
-        # Calculate gradients for G
+        # Calculate G's loss based on this output with gradient update
+        errG = -output.mean()
         errG.backward()
-        D_G_z2 = output.mean().item()
-        # Update G
         optimizerG.step()
         
         # Output training stats
         if i % 50 == 0:
-            print(f'[{epoch}/{num_epochs}][{i}/{len(dataloader)}] Loss_D: {errD.item():.4f} Loss_G: {errG.item():.4f} Pixel_Reg: {pixel_reg.item():.4f}')
+            print(f'[{epoch}/{num_epochs}][{i}/{len(dataloader)}] Loss_D: {errD.item():.4f} Loss_G: {errG.item():.4f} Gradient penalty: {gp.item():.4f}')
         
         # Save Losses for plotting later
         G_losses.append(errG.item())
@@ -215,7 +195,7 @@ for epoch in range(num_epochs):
                 fake = netG(fixed_noise).detach().cpu()
                 fake_grid = vutils.make_grid(fake, padding=2, normalize=True)
                 vutils.save_image(fake_grid, f'../reports/fake_{iters}.png')
-            img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
+            img_list.append(fake_grid)
             
         iters += 1
     torch.save(netD, '../models/netD.pkl')
