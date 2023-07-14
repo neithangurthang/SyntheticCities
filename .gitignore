@@ -15,6 +15,7 @@ __pycache__/
 
 # Cadastral images
 /data/cadastralExportRGB
+/data/*.pkl
 
 # Folders with models dumped and reports
 /reports

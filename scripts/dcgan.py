@@ -25,11 +25,9 @@ import matplotlib.animation as animation
 from IPython.display import HTML
 
 # Set random seed for reproducibility
-manualSeed = 999
-#manualSeed = random.randint(1, 10000) # use if you want new results
-print("Random Seed: ", manualSeed)
-random.seed(manualSeed)
-torch.manual_seed(manualSeed)
+manual_seed = 999
+random.seed(manual_seed)
+torch.manual_seed(manual_seed)
 torch.use_deterministic_algorithms(False) # Needed for linear layers to perform correctly with GPU
 
 # Root directory for dataset
@@ -64,7 +62,7 @@ ndf = 64
 num_epochs = 1000
 
 # Learning rate for optimizers
-lr = 1e-4
+lr = 1e-2
 
 # Number of GPUs available. Use 0 for CPU mode.
 ngpu = 1
@@ -72,11 +70,16 @@ ngpu = 1
 # Decide which device we want to run on
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 
+# Regularization for generator not being sure which color to put in a pixel
+pixel_reg_rate = 1
+
 # We can use an image folder dataset the way we have it setup
 if os.path.exists(dataroot + '/.ipynb_checkpoints'):
     shutil.rmtree(dataroot + '/.ipynb_checkpoints')
     
-dataset = load_folder(dataroot, resolution=(image_size, image_size), mult=mult, device='cpu')
+# dataset = load_folder(dataroot, resolution=(image_size, image_size), mult=mult, device='cpu')
+
+dataset = torch.load('../data/dataset.pkl')
 
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, 
                                              shuffle=True, num_workers=4, drop_last=True)
@@ -91,7 +94,7 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
         
 # Create the generator
-netG = Generator(nz, nc, ngf, ngpu).to(device)
+netG = Generator(nz, nc, ngf).to(device)
 
 # Handle multi-GPU if desired
 if (device.type == 'cuda') and (ngpu > 1):
@@ -102,7 +105,7 @@ if (device.type == 'cuda') and (ngpu > 1):
 netG.apply(weights_init)
 
 # Create the Discriminator
-netD = Discriminator(ndf, ngpu).to(device)
+netD = Discriminator(nc, ndf).to(device)
 
 # Handle multi-GPU if desired
 if (device.type == 'cuda') and (ngpu > 1):
@@ -151,7 +154,7 @@ for epoch in range(num_epochs):
         b_size = real_cpu.size(0)
         label = torch.full((b_size,), real_label, dtype=torch.float, device=device)
         # Forward pass real batch through D
-        output = netD(real_cpu, batch_size, nc, image_size).view(-1)
+        output = netD(real_cpu).view(-1)
         # Calculate loss on all-real batch
         # errD_real = criterion(output, label)
         errD_real = -output.mean()
@@ -166,7 +169,7 @@ for epoch in range(num_epochs):
         fake = netG(noise)
         label.fill_(fake_label)
         # Classify all fake batch with D
-        output = netD(fake.detach(), batch_size, nc, image_size).view(-1)
+        output = netD(fake.detach()).view(-1)
         # Calculate D's loss on the all-fake batch
         # errD_fake = criterion(output, label)
         errD_fake = output.mean()
@@ -186,10 +189,12 @@ for epoch in range(num_epochs):
         netG.zero_grad()
         label.fill_(real_label)  # fake labels are real for generator cost
         # Since we just updated D, perform another forward pass of all-fake batch through D
-        output = netD(fake, batch_size, nc, image_size).view(-1)
+        output = netD(fake).view(-1)
         # Calculate G's loss based on this output
         # errG = criterion(output, label)
-        errG = - output.mean()
+        # relu = nn.ReLU()
+        pixel_reg = torch.mean(torch.sum(torch.log(fake + 1e-5), axis=1))
+        errG = -output.mean() # + pixel_reg_rate * pixel_reg
         # Calculate gradients for G
         errG.backward()
         D_G_z2 = output.mean().item()
@@ -197,17 +202,15 @@ for epoch in range(num_epochs):
         optimizerG.step()
         
         # Output training stats
-        if i % 20 == 0:
-            print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
-                  % (epoch, num_epochs, i, len(dataloader),
-                     errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
+        if i % 50 == 0:
+            print(f'[{epoch}/{num_epochs}][{i}/{len(dataloader)}] Loss_D: {errD.item():.4f} Loss_G: {errG.item():.4f} Pixel_Reg: {pixel_reg.item():.4f}')
         
         # Save Losses for plotting later
         G_losses.append(errG.item())
         D_losses.append(errD.item())
         
         # Check how the generator is doing by saving G's output on fixed_noise
-        if (iters % 100 == 0) or ((epoch == num_epochs-1) and (i == len(dataloader)-1)):
+        if (iters % 250 == 0) or ((epoch == num_epochs-1) and (i == len(dataloader)-1)):
             with torch.no_grad():
                 fake = netG(fixed_noise).detach().cpu()
                 fake_grid = vutils.make_grid(fake, padding=2, normalize=True)
@@ -216,4 +219,4 @@ for epoch in range(num_epochs):
             
         iters += 1
     torch.save(netD, '../models/netD.pkl')
-    torch.save(netD, '../models/netG.pkl')
+    torch.save(netG, '../models/netG.pkl')
