@@ -60,6 +60,35 @@ class Generator(nn.Module):
 #     def forward(self, input_):
 #         return self.main(input_)
     
+# class Discriminator(nn.Module):
+#     def __init__(self, nc, ndf):
+#         super(Discriminator, self).__init__()
+#         self.main = nn.Sequential(
+#             nn.Conv2d(in_channels=nc, out_channels=ndf, kernel_size=11, stride=2, padding=1, 
+#                       bias=False),
+#             nn.BatchNorm2d(ndf),
+#             nn.LeakyReLU(0.2, inplace=True),
+#             nn.Conv2d(in_channels=ndf, out_channels=ndf * 2, kernel_size=9, stride=2, padding=1, 
+#                       bias=False),
+#             nn.BatchNorm2d(ndf * 2),
+#             nn.LeakyReLU(0.2, inplace=True),
+#             nn.Conv2d(in_channels=ndf * 2, out_channels=ndf * 4, kernel_size=7, stride=2, padding=1, 
+#                       bias=False),
+#             nn.BatchNorm2d(ndf * 4),
+#             nn.LeakyReLU(0.2, inplace=True),
+#             nn.Conv2d(in_channels=ndf * 4, out_channels=ndf * 8, kernel_size=5, stride=1, padding=0, 
+#                       bias=False),
+#             nn.BatchNorm2d(ndf * 8),
+#             nn.LeakyReLU(0.2, inplace=True),
+#             nn.Conv2d(in_channels=ndf * 8, out_channels=1, kernel_size=3, stride=1, padding=0, 
+#                       bias=False),
+#             nn.Tanhshrink()
+#         )
+
+#     def forward(self, input_):
+#         return self.main(input_)
+
+
 class Discriminator(nn.Module):
     def __init__(self, nc, ndf):
         super(Discriminator, self).__init__()

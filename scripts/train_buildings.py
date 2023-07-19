@@ -12,7 +12,7 @@ import torch.optim as optim
 import torchvision.utils as vutils
 
 from src.images.dataloader import CadastralImage, load_folder
-from src.models.single_output_DCGAN import Generator, Discriminator
+from src.models.img_input_single_output_DCGAN import Generator, Discriminator
 from src.utils.regularizers import gradient_penalty
 
 # set random seed for reproducibility
@@ -25,19 +25,21 @@ torch.use_deterministic_algorithms(False) # needed for linear layers to perform 
 
 DATAROOT = "../data/cadastralExportRGB/train/"  # root directory for dataset
 WORKERS = 4  # number of workers for dataloader
-BATCH_SIZE = 500  # batch size during training
+BATCH_SIZE = 20  # batch size during training
 IMG_SIZE = 300  # spatial size of training images (to be resized to)
 MULT = 3.15  # re-size factor: 11 if resolution is 64 x 64, 3.15 if resolution is 300 x 300
-NC = 1  # number of entities aka channels in the training images
-NZ = 100  # size of noise vector (i.e. size of generator input)
+NC = 2  # number of entities aka channels in the training images
+NZ = 1  # size of noise vector (i.e. size of generator input)
 NGF = 32  # base size of feature maps in generator
 NDF = 32  # base size of feature maps in discriminator
 NUM_EPOCHS = 1000  # number of training epochs
 LR = 1e-2  # learning rate for both optimizers
-DEVICE = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")  # which device to run on
+# DEVICE = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")  # which device to run on
+DEVICE = 'cpu'
 GP_RATE = 1  # gradient penalty rate
 COND_RATE = 1  # conditional regularization (based on percentage of Roads - Greens - Buildings)
-MAX_FRAC = 0.1  # threshold of maximum fraction of particular condition
+MAX_FRAC = 0.25  # threshold of maximum fraction of roads
+MIN_FRAC = 0.01  # threshold of minimum fraction of roads
 
 
 # We can use an image folder dataset the way we have it setup
@@ -46,7 +48,8 @@ if os.path.exists(DATAROOT + '/.ipynb_checkpoints'):
     
 # dataset = load_folder(DATAROOT, resolution=(IMG_SIZE, IMG_SIZE), mult=MULT, device='cpu')
 
-dataset = torch.load('../data/dataset.pkl')
+# dataset = torch.load('../data/dataset.pkl')
+dataset = torch.load('../data/roads.pkl')
 
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, 
                                              shuffle=True, num_workers=WORKERS, drop_last=True)
@@ -61,7 +64,7 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
         
 # Create the generator
-netG = Generator(NZ, NC, NGF).to(DEVICE)
+netG = Generator(NZ, NC - 1, NGF).to(DEVICE)
 # netG = Generator(NZ + NC, NC, NGF).to(DEVICE)  # for the case of conditions
 netG.apply(weights_init)  # initialize weights for generator
 
@@ -73,7 +76,12 @@ netD.apply(weights_init)  # initialize weights for discriminator
 # netD = torch.load('../models/netD.pkl')
 # netG = torch.load('../models/netG.pkl')
 
-fixed_noise = torch.randn(64, NZ, 1, 1, device=DEVICE)  # creating moise batch
+real_batch = next(iter(dataloader))
+real_batch = real_batch[0].to(DEVICE)
+fixed_roads = real_batch[:, 0, :, :]
+fixed_roads = fixed_roads.view(BATCH_SIZE, 1, IMG_SIZE, IMG_SIZE)
+
+# fixed_noise = torch.randn(64, NZ, 1, 1, device=DEVICE)  # creating moise batch
 # fixed_conds = torch.randn(64, NC, 1, 1, device=DEVICE)  # fixed fake random conditions
 # softmax = nn.Softmax(dim=1)
 # fixed_conds = softmax(fixed_conds)
@@ -101,21 +109,24 @@ for epoch in range(NUM_EPOCHS):
         # Format batch
         netD.zero_grad()
         real_batch = data[0].to(DEVICE)
+        noise = real_batch[:, 0, :, :]  # extracting only roads!
         real_batch = real_batch[:, 2, :, :]  # extracting only buildings!
         # Extracting the conditions from real batch to fake them then
-        real_conds = torch.sum(real_batch, dim=(1, 2)) / (IMG_SIZE ** 2)
-        indices = ((real_conds > MAX_FRAC) == False).nonzero(as_tuple=True)[0]
+        # real_conds = torch.sum(real_batch, dim=(1, 2)) / (IMG_SIZE ** 2)
+        # indices = (((real_conds > MAX_FRAC) + (real_conds < MIN_FRAC)) == 0).nonzero(as_tuple=True)[0]
         # Slicing and re-creating conditions based on filtered batch
-        real_batch = torch.index_select(real_batch, 0, indices)
+        # real_batch = torch.index_select(real_batch, 0, indices)
         real_batch = real_batch.view(real_batch.shape[0], 1, IMG_SIZE, IMG_SIZE)
+        # noise = torch.index_select(noise, 0, indices)
+        noise = noise.view(noise.shape[0], 1, IMG_SIZE, IMG_SIZE)
         b_size = real_batch.size(0)
         # Forward pass real batch through D and make gradient update
-        output = netD(real_batch).view(-1)
+        output = netD(torch.cat((noise, real_batch), dim=1)).view(-1)
         errD_real = - output.mean()
         errD_real.backward()
         ## Train with all-fake batch
         # Generate batch of latent vectors
-        noise = torch.randn(b_size, NZ, 1, 1, device=DEVICE)
+        # noise = torch.randn(b_size, NZ, 1, 1, device=DEVICE)
         # real_conds = real_conds.view(real_conds.shape[0], real_conds.shape[1], 1, 1)
         # noise = torch.cat((noise, real_conds), dim=1)
         # Generate fake image batch with G
@@ -159,10 +170,10 @@ for epoch in range(NUM_EPOCHS):
         # Check how the generator is doing by saving G's output on fixed_noise
         if (i == 0) or ((epoch == NUM_EPOCHS-1) and (i == len(dataloader)-1)):
             with torch.no_grad():
-                buildings = netG(fixed_noise).detach().cpu()
-                greens = torch.ones_like(buildings) - buildings 
-                roads = torch.zeros_like(buildings)
-                fake = torch.cat((roads, greens, buildings), dim=1)
+                fake_buildings = netG(fixed_roads).detach().cpu()[:, 1, :, :]
+                fake_buildings = fake_buildings.view(fake_buildings.shape[0], 1, IMG_SIZE, IMG_SIZE)
+                greens = torch.ones_like(fixed_roads) - fake_buildings - fixed_roads
+                fake = torch.cat((fixed_roads, greens, fake_buildings), dim=1)
                 fake_grid = vutils.make_grid(fake, padding=2, normalize=True)
                 vutils.save_image(fake_grid, f'../reports/fake_{iters}.png')
             img_list.append(fake_grid)
