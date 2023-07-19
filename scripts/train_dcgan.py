@@ -152,7 +152,7 @@ for epoch in range(NUM_EPOCHS):
         # Introduce discriminator gradient clipping so that it doesn't learn too fast
         for p in netD.parameters():
             p.data.clamp_(-0.05, 0.05)
-
+        
         ############################
         # (2) Update G network: maximize D(G(z))
         ###########################
