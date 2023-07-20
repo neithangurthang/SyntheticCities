@@ -1,0 +1,14 @@
+Fiona==1.9.1
+geopandas==0.12.2
+ipython==8.2.0
+matplotlib==3.5.1
+mlflow==2.2.1
+numpy==1.22.4
+optuna==3.1.0
+pandas==1.4.2
+Pillow==9.0.1
+Pillow==9.5.0
+Shapely==2.0.1
+torch==2.0.0+cu117
+torchvision==0.15.1+cu117
+tqdm==4.64.0
