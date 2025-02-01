@@ -5,6 +5,12 @@
 *.csv
 *.gpkg
 *.qgz
+*.xlsx
+*.pdf
+
+# Geodata types
+*.gpkg
+*.gdb
 
 # ML runs
 mlruns/
